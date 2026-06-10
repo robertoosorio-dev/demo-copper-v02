@@ -40,9 +40,12 @@ interface State {
   setLlmModel: (m: string) => void;
   setLoading: (v: boolean) => void;
 
+  updateDataDocument: (doc: string) => void;
   updateMediaDocument: (doc: string) => void;
   appendExchanges: (exchanges: Exchange[]) => void;
   setVersion: (v: Version) => void;
+  // Called when server returns ops result — updates plans but preserves client exchanges, marks unsaved
+  mergeServerVersion: (v: Version) => void;
 
   // Save
   saveNow: () => Promise<void>;
@@ -95,22 +98,37 @@ export const useStore = create<State>((set, get) => ({
   setLlmModel: (llmModel) => set({ llmModel }),
   setLoading: (isLoading) => set({ isLoading }),
 
+  updateDataDocument: (doc) =>
+    set((s) => {
+      if (!s.version) return {};
+      return {
+        version: {
+          ...s.version,
+          plans: { ...s.version.plans, data: { ...s.version.plans.data, document: doc } },
+        },
+        saveStatus: "unsaved" as SaveStatus,
+      };
+    }),
+
   updateMediaDocument: (doc) =>
     set((s) => {
       if (!s.version) return {};
       return {
         version: {
           ...s.version,
-          plans: {
-            ...s.version.plans,
-            media: { ...s.version.plans.media, document: doc },
-          },
+          plans: { ...s.version.plans, media: { ...s.version.plans.media, document: doc } },
         },
         saveStatus: "unsaved" as SaveStatus,
       };
     }),
 
   setVersion: (v) => set({ version: v, saveStatus: "saved" }),
+
+  mergeServerVersion: (v) =>
+    set((s) => ({
+      version: s.version ? { ...v, context: s.version.context } : v,
+      saveStatus: "unsaved" as SaveStatus,
+    })),
 
   appendExchanges: (exchanges) =>
     set((s) => {

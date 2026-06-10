@@ -12,9 +12,9 @@ export default function ContextPanel() {
   const activePlan      = useStore((s) => s.activePlan);
   const isLoading       = useStore((s) => s.isLoading);
   const llmModel        = useStore((s) => s.llmModel);
-  const appendExchanges = useStore((s) => s.appendExchanges);
-  const setVersion      = useStore((s) => s.setVersion);
-  const setLoading      = useStore((s) => s.setLoading);
+  const appendExchanges    = useStore((s) => s.appendExchanges);
+  const mergeServerVersion = useStore((s) => s.mergeServerVersion);
+  const setLoading         = useStore((s) => s.setLoading);
 
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
@@ -43,9 +43,10 @@ export default function ContextPanel() {
     setLoading(true);
 
     try {
-      const result = await chat(version.id!, text, llmModel, [...exchanges, userExchange]);
+      const result = await chat(version.id!, text, llmModel, [...exchanges, userExchange], version);
       appendExchanges([result.exchange]);
-      if (result.version) setVersion(result.version);
+      // Merge server version (updated plans) while preserving client-side exchanges
+      if (result.version) mergeServerVersion(result.version);
     } catch (err) {
       appendExchanges([{
         id: `ex_err_${Date.now()}`,

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { ProjectStore } from "../store.js";
-import type { Exchange, Intent, ReasoningLogEntry } from "@copper/contracts";
+import type { Exchange, Intent, ReasoningLogEntry, Version } from "@copper/contracts";
 import { routeLLM } from "../llm/router.js";
 import { buildSystemPrompt } from "../llm/systemPrompt.js";
 import { applyOps } from "../llm/applyOps.js";
@@ -10,16 +10,19 @@ export function makeChatRouter(store: ProjectStore): Router {
 
   // POST /api/projects/:id/chat
   router.post("/:id/chat", async (req, res) => {
-    const { message, llmModel = "claude-sonnet-4-6", exchanges = [] } = req.body as {
+    const { message, llmModel = "claude-sonnet-4-6", exchanges = [], version: clientVersion } = req.body as {
       message: string;
       llmModel?: string;
       exchanges?: Exchange[];
+      version?: Version;
     };
 
     if (!message?.trim()) return res.status(400).json({ error: "message required" });
 
     const projectId = req.params.id;
-    const version = await store.loadLatestVersion(projectId);
+    // Use the client's current version as the base (may be provisional/unsaved).
+    // Fall back to store only if client didn't send it.
+    const version = clientVersion ?? await store.loadLatestVersion(projectId);
     if (!version) return res.status(404).json({ error: "Project not found" });
 
     const systemPrompt = buildSystemPrompt(version);
@@ -55,7 +58,7 @@ export function makeChatRouter(store: ProjectStore): Router {
       return res.status(500).json({ error: `LLM error: ${(err as Error).message}` });
     }
 
-    // Apply ops and produce a new version if anything changed
+    // Apply ops and produce a provisional new version (NOT saved — user must explicitly save).
     let newVersion = version;
     let versioned = false;
     if (ops.length > 0) {
@@ -67,7 +70,6 @@ export function makeChatRouter(store: ProjectStore): Router {
         authoredBy: "system",
         createdAt: new Date().toISOString(),
       };
-      await store.saveVersion(projectId, newVersion);
       versioned = true;
     }
 

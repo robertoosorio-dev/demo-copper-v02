@@ -5,10 +5,11 @@ import { markdown } from "@codemirror/lang-markdown";
 import { oneDark } from "@codemirror/theme-one-dark";
 
 export default function PlanDocument() {
-  const activePlan         = useStore((s) => s.activePlan);
-  const mediaDocument      = useStore((s) => s.mediaDocument());
+  const activePlan          = useStore((s) => s.activePlan);
+  const dataDocument        = useStore((s) => s.version?.plans.data.document ?? "");
+  const mediaDocument       = useStore((s) => s.mediaDocument());
+  const updateDataDocument  = useStore((s) => s.updateDataDocument);
   const updateMediaDocument = useStore((s) => s.updateMediaDocument);
-  const version            = useStore((s) => s.version);
 
   if (activePlan === "creative") {
     return (
@@ -19,18 +20,19 @@ export default function PlanDocument() {
   }
 
   if (activePlan === "data") {
-    const doc = version?.plans.data.document ?? "";
     return (
       <div className="plan-doc">
         <div className="plan-doc-header">
           <span className="plan-doc-label">Data Plan · Document</span>
         </div>
-        <div className="plan-doc-body plan-doc-body--readonly">
-          {doc ? (
-            <pre className="plan-doc-pre">{doc}</pre>
-          ) : (
-            <div className="plan-doc-empty">Document auto-generated from model (M3)</div>
-          )}
+        <div className="plan-doc-body plan-doc-cm">
+          <CodeMirror
+            value={dataDocument}
+            onChange={updateDataDocument}
+            extensions={[markdown()]}
+            theme={oneDark}
+            style={{ height: "100%", fontSize: 12 }}
+          />
         </div>
       </div>
     );

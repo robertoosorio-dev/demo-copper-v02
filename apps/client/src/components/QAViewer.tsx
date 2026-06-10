@@ -1,36 +1,52 @@
 import React, { useEffect, useState } from "react";
 import { useStore } from "../store.js";
-import { listTransactionPasses, listReasoningEntries } from "../api.js";
+import { listVersions, listTransactionPasses, listReasoningEntries } from "../api.js";
 import type { ReasoningLogEntry } from "@copper/contracts";
 
 interface PassMeta {
   passId: string;
-  entryCount: number;
   entries: ReasoningLogEntry[];
+}
+
+interface VersionBlock {
+  versionNum: number;
+  authoredBy: "user" | "system";
+  createdAt: string;
+  passes: PassMeta[];
 }
 
 export default function QAViewer() {
   const version = useStore((s) => s.version);
-  const [passes, setPasses] = useState<PassMeta[]>([]);
+  const [blocks, setBlocks] = useState<VersionBlock[]>([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<ReasoningLogEntry | null>(null);
 
-  useEffect(() => {
-    if (!version?.id) return;
+  function load(id: string) {
     setLoading(true);
-    listTransactionPasses(version.id, version.version)
-      .then(async (passIds: string[]) => {
-        const all = await Promise.all(
-          passIds.map(async (passId: string) => {
-            const entries = await listReasoningEntries(version.id!, version.version, passId);
-            return { passId, entryCount: entries.length, entries };
+    listVersions(id)
+      .then(async (summaries) => {
+        const result: VersionBlock[] = await Promise.all(
+          [...summaries].reverse().map(async (vs) => {
+            const passIds = await listTransactionPasses(id, vs.versionNum).catch(() => [] as string[]);
+            const passes = await Promise.all(
+              passIds.map(async (passId) => {
+                const entries = await listReasoningEntries(id, vs.versionNum, passId).catch(() => [] as ReasoningLogEntry[]);
+                return { passId, entries };
+              }),
+            );
+            return { versionNum: vs.versionNum, authoredBy: vs.authoredBy, createdAt: vs.createdAt, passes };
           }),
         );
-        setPasses(all);
+        setBlocks(result);
       })
-      .catch(() => setPasses([]))
+      .catch(() => setBlocks([]))
       .finally(() => setLoading(false));
-  }, [version?.id, version?.version]);
+  }
+
+  useEffect(() => {
+    if (!version?.id) return;
+    load(version.id);
+  }, [version?.id]);
 
   if (!version) {
     return (
@@ -40,34 +56,48 @@ export default function QAViewer() {
     );
   }
 
+  const totalPasses = blocks.reduce((n, b) => n + b.passes.length, 0);
+
   return (
     <div className="qa-shell">
       <div className="qa-header">
         <span className="qa-title">Transaction Log</span>
-        <span className="qa-version">v{version.version}</span>
+        <span className="qa-version">{blocks.length} versions · {totalPasses} passes</span>
         {loading && <span className="qa-loading">loading…</span>}
+        <button className="qa-refresh" onClick={() => load(version.id!)} disabled={loading}>↺</button>
       </div>
 
       <div className="qa-body">
         <div className="qa-sidebar">
-          {passes.length === 0 && !loading && (
-            <div className="qa-no-passes">No transactions yet for this version.</div>
+          {!loading && blocks.every((b) => b.passes.length === 0) && (
+            <div className="qa-no-passes">No transactions recorded yet.</div>
           )}
-          {passes.map((p) => (
-            <div key={p.passId} className="qa-pass-group">
-              <div className="qa-pass-hdr">
-                <span className="qa-pass-id">{p.passId}</span>
-                <span className="qa-pass-count">{p.entryCount} entries</span>
+          {blocks.map((b) => (
+            <div key={b.versionNum} className="qa-ver-block">
+              <div className="qa-ver-hdr">
+                <span className="qa-ver-num">v{b.versionNum}</span>
+                <span className="qa-ver-author">{b.authoredBy}</span>
+                <span className="qa-ver-date">{new Date(b.createdAt).toLocaleString()}</span>
               </div>
-              {p.entries.map((e, i) => (
-                <div
-                  key={i}
-                  className={`qa-entry-row${selected === e ? " sel" : ""}`}
-                  onClick={() => setSelected(e)}
-                >
-                  <span className="qa-entry-pass">{e.pass}</span>
-                  <span className="qa-entry-seq">#{e.seq}</span>
-                  <span className="qa-entry-changes">{e.producedChanges.length} changes</span>
+              {b.passes.length === 0 && (
+                <div className="qa-no-passes qa-no-passes--indent">no transactions</div>
+              )}
+              {b.passes.map((p) => (
+                <div key={p.passId} className="qa-pass-group">
+                  <div className="qa-pass-hdr">
+                    <span className="qa-pass-id">{p.passId}</span>
+                    <span className="qa-pass-count">{p.entries.length} entries</span>
+                  </div>
+                  {p.entries.map((e, i) => (
+                    <div
+                      key={i}
+                      className={`qa-entry-row${selected === e ? " sel" : ""}`}
+                      onClick={() => setSelected(e)}
+                    >
+                      <span className="qa-entry-seq">#{e.seq}</span>
+                      <span className="qa-entry-changes">{e.producedChanges.length} ops</span>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>

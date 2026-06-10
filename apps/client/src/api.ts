@@ -101,8 +101,9 @@ export function chat(
   message: string,
   llmModel: string,
   exchanges: Exchange[],
+  version: Version,
 ): Promise<ChatResponse> {
-  return post<ChatResponse>(`/projects/${id}/chat`, { message, llmModel, exchanges });
+  return post<ChatResponse>(`/projects/${id}/chat`, { message, llmModel, exchanges, version });
 }
 
 export function listVersions(id: string): Promise<VersionSummary[]> {
