@@ -157,6 +157,18 @@ export async function createStore(): Promise<ProjectStore> {
     const { GCSProjectStore } = await import("./gcsStore.js");
     const gcsStore = new GCSProjectStore();
     await gcsStore.validate();
+
+    // Seed LMH fixture into GCS if the bucket has no projects yet
+    const existing = await gcsStore.listProjects();
+    if (existing.length === 0) {
+      console.log("[store] GCS bucket is empty — seeding LMH fixture…");
+      const seed = loadFixture();
+      await gcsStore.saveVersion(seed.id, seed);
+      console.log(`[store] ✅ Seeded ${seed.name} (v${seed.version}) into GCS`);
+    } else {
+      console.log(`[store] ✅ GCS store loaded (${existing.length} project${existing.length !== 1 ? "s" : ""})`);
+    }
+
     return gcsStore;
   }
 
