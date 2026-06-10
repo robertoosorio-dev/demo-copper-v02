@@ -1,0 +1,13 @@
+{
+  "name": "@copper/admin-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --build"
+  },
+  "dependencies": {
+    "@copper/contracts": "*",
+    "@copper/kb": "*"
+  }
+}

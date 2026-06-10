@@ -1,0 +1,19 @@
+{
+  "id": "$impression",
+  "description": "System-reserved impression context object. Fields are available as sourceFieldId targets in Output entities. Finite and hardcoded — not user-creatable.",
+  "fields": [
+    { "id": "QUERY_STRING_Q",    "name": "QUERY_STRING_Q",    "description": "Query string parameter q" },
+    { "id": "QUERY_STRING_ALL",  "name": "QUERY_STRING_ALL",  "description": "Full query string" },
+    { "id": "REFERRER",          "name": "REFERRER",          "description": "HTTP referrer URL" },
+    { "id": "PAGE_URL",          "name": "PAGE_URL",          "description": "Current page URL" },
+    { "id": "USER_AGENT",        "name": "USER_AGENT",        "description": "Browser user agent string" },
+    { "id": "GEO_COUNTRY",       "name": "GEO_COUNTRY",       "description": "ISO country code from IP geo" },
+    { "id": "GEO_REGION",        "name": "GEO_REGION",        "description": "Region/state from IP geo" },
+    { "id": "GEO_CITY",          "name": "GEO_CITY",          "description": "City from IP geo" },
+    { "id": "GEO_ZIP",           "name": "GEO_ZIP",           "description": "ZIP/postal code from IP geo" },
+    { "id": "DEVICE_TYPE",       "name": "DEVICE_TYPE",       "description": "desktop | mobile | tablet" },
+    { "id": "TIMESTAMP_UTC",     "name": "TIMESTAMP_UTC",     "description": "Impression timestamp in UTC" },
+    { "id": "PLACEMENT_ID",      "name": "PLACEMENT_ID",      "description": "Internal placement identifier" },
+    { "id": "EXPERIENCE_GROUP_ID","name": "EXPERIENCE_GROUP_ID","description": "Internal experience group identifier" }
+  ]
+}

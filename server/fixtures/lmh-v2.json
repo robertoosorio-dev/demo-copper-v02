@@ -1,0 +1,312 @@
+{
+  "id": "luminary-health-q3-2025",
+  "name": "Luminary Health Q3 2025",
+  "version": 1,
+  "parentVersion": null,
+  "authoredBy": "user",
+  "createdAt": "2025-06-01T00:00:00.000Z",
+
+  "context": {
+    "contextFiles": [],
+    "exchanges": [
+      {
+        "id": "ex_001",
+        "role": "assistant",
+        "text": "Got it. I've initialized the Luminary Health Q3 2025 project. The data plan has two source tables — HealthUserEvents (behavioral signals from the health portal) and AppointmentRequests (CRM intake) — feeding three derived audiences: High Intent (form submitters and appointment requesters), Broad Health (3+ page views), and Spanish Speakers. The media plan covers the three-partner structure: Meta for prospecting, DV360 for retargeting, Yahoo DSP for prospecting. Both plans are ready to develop further.",
+        "status": "success",
+        "llmModel": "claude-sonnet-4-6",
+        "startedAt": "2025-06-01T09:00:00.000Z",
+        "responseTimeMs": 1840,
+        "planType": null,
+        "proposal": {
+          "description": "Initialized project with data model and media plan skeleton",
+          "backward": [
+            { "type": "add", "label": "HealthUserEvents",     "note": "Source table — requires daily feed from health portal" },
+            { "type": "add", "label": "AppointmentRequests",  "note": "Source table — requires daily CRM sync" }
+          ],
+          "forward": [
+            { "type": "add", "label": "3 audience outputs",   "note": "HighIntent, BroadHealth, SpanishSpeakers derived from source tables" },
+            { "type": "add", "label": "Media plan skeleton",  "note": "Meta + DV360 + Yahoo structure ready for placement detail" }
+          ]
+        }
+      },
+      {
+        "id": "ex_002",
+        "role": "assistant",
+        "text": "Added Language Detect flow object to the LMH Q3 Activation segment. It filters users with lang = 'es' from HealthUserEvents and populates the SpanishSpeakers derived table. LMH_ES_UA now routes those users to P_LMH_FB_ES_HighIntent (Meta) and P_LMH_Yahoo_Prosp_300x250 (Yahoo DSP) — the two placements targeting the US Spanish-speaking audience.",
+        "status": "success",
+        "llmModel": "claude-sonnet-4-6",
+        "startedAt": "2025-06-01T09:08:00.000Z",
+        "responseTimeMs": 2210,
+        "planType": "data",
+        "proposal": {
+          "description": "Added Spanish language routing and LMH_ES_UA output",
+          "backward": [
+            { "type": "add", "label": "lang field", "note": "HealthUserEvents must include a language preference field" }
+          ],
+          "forward": [
+            { "type": "add", "label": "LMH_ES_UA",         "note": "Feeds Meta ES HighIntent and Yahoo Prosp placements" },
+            { "type": "add", "label": "SpanishSpeakers table","note": "Derived from HealthUserEvents where lang = es" }
+          ]
+        }
+      },
+      {
+        "id": "ex_003",
+        "role": "assistant",
+        "text": "LMH_HighIntent_UA now covers both Meta (P_LMH_FB_EN_HighIntent) and all three DV360 retarget placements (300x250, 728x90, 160x600). Users who express high intent on the health portal get prospected on social via Meta and retargeted on display via DV360 — two-channel activation from a single audience definition.",
+        "status": "success",
+        "llmModel": "claude-sonnet-4-6",
+        "startedAt": "2025-06-01T09:15:00.000Z",
+        "responseTimeMs": 1920,
+        "planType": "data",
+        "proposal": {
+          "description": "Extended LMH_HighIntent_UA to also feed DV360 retargeting",
+          "backward": [
+            { "type": "modify", "label": "LMH_HighIntent_UA", "note": "Now feeds 4 placements across 2 partners instead of 1" }
+          ],
+          "forward": [
+            { "type": "add",    "label": "DV360 retarget coverage", "note": "Same high-intent signal activates P_LMH_DV360_Ret_300x250, 728x90, 160x600" },
+            { "type": "modify", "label": "EG_LMH_EN_HighIntent",    "note": "Experience group now spans Meta + DV360 placements" }
+          ]
+        }
+      }
+    ]
+  },
+
+  "plans": {
+    "data": {
+      "document": "",
+      "model": {
+        "name": "LMH Q3 2025 Activation",
+        "entities": {
+          "tbl_health_events": {
+            "type": "Table",
+            "name": "HealthUserEvents",
+            "tableType": "Input",
+            "primaryKey": "user_id",
+            "description": "Behavioral events from the Luminary Health portal — page views, form submits, searches.",
+            "fields": [
+              { "id": "fld_he_user_id",    "name": "user_id",     "dataType": "Text",      "isPrimaryKey": true  },
+              { "id": "fld_he_event_type", "name": "event_type",  "dataType": "Text",      "isPrimaryKey": false },
+              { "id": "fld_he_timestamp",  "name": "timestamp",   "dataType": "Timestamp", "isPrimaryKey": false },
+              { "id": "fld_he_utm_source", "name": "utm_source",  "dataType": "Text",      "isPrimaryKey": false },
+              { "id": "fld_he_lang",       "name": "lang",        "dataType": "Text",      "isPrimaryKey": false }
+            ]
+          },
+          "tbl_appt_requests": {
+            "type": "Table",
+            "name": "AppointmentRequests",
+            "tableType": "Input",
+            "primaryKey": "user_id",
+            "description": "Appointment requests submitted via the health portal, synced from CRM.",
+            "fields": [
+              { "id": "fld_ar_user_id",      "name": "user_id",        "dataType": "Text",      "isPrimaryKey": true  },
+              { "id": "fld_ar_service_type", "name": "service_type",   "dataType": "Text",      "isPrimaryKey": false },
+              { "id": "fld_ar_req_date",     "name": "requested_date", "dataType": "Timestamp", "isPrimaryKey": false },
+              { "id": "fld_ar_status",       "name": "status",         "dataType": "Text",      "isPrimaryKey": false }
+            ]
+          },
+          "tbl_high_intent": {
+            "type": "Table",
+            "name": "HighIntentUsers",
+            "tableType": "Transform",
+            "primaryKey": "user_id",
+            "description": "Users who submitted a form or requested an appointment in the last 30 days.",
+            "fields": [
+              { "id": "fld_hi_user_id",     "name": "user_id",          "dataType": "Text",      "isPrimaryKey": true  },
+              { "id": "fld_hi_signal",      "name": "intent_signal",    "dataType": "Text",      "isPrimaryKey": false },
+              { "id": "fld_hi_last_action", "name": "last_action_date", "dataType": "Timestamp", "isPrimaryKey": false }
+            ]
+          },
+          "tbl_broad_health": {
+            "type": "Table",
+            "name": "BroadHealthUsers",
+            "tableType": "Transform",
+            "primaryKey": "user_id",
+            "description": "Users with 3 or more health page views in the last 30 days.",
+            "fields": [
+              { "id": "fld_bh_user_id",    "name": "user_id",        "dataType": "Text",    "isPrimaryKey": true  },
+              { "id": "fld_bh_page_views", "name": "page_view_count","dataType": "Integer", "isPrimaryKey": false }
+            ]
+          },
+          "tbl_spanish": {
+            "type": "Table",
+            "name": "SpanishSpeakers",
+            "tableType": "Transform",
+            "primaryKey": "user_id",
+            "description": "Users with language preference set to Spanish (lang = es).",
+            "fields": [
+              { "id": "fld_es_user_id", "name": "user_id", "dataType": "Text", "isPrimaryKey": true  },
+              { "id": "fld_es_lang",    "name": "lang",    "dataType": "Text", "isPrimaryKey": false }
+            ]
+          },
+          "imp_health_events": {
+            "type": "Import",
+            "name": "HealthUserEvents Feed",
+            "source": "Health Portal",
+            "frequency": "Daily",
+            "syncMode": "Daily"
+          },
+          "imp_appt": {
+            "type": "Import",
+            "name": "AppointmentRequests Feed",
+            "source": "CRM",
+            "frequency": "Daily",
+            "syncMode": "Daily"
+          },
+          "fo_high_intent_filter": {
+            "type": "Filter",
+            "name": "High Intent Filter",
+            "predicate": "event_type = form_submit OR appt_request within 30d"
+          },
+          "fo_broad_filter": {
+            "type": "Filter",
+            "name": "Broad Health Filter",
+            "predicate": "page_view_count >= 3 within 30d"
+          },
+          "fo_lang_detect": {
+            "type": "AlgoAI",
+            "name": "Language Detect",
+            "optimization": "Route",
+            "promoted": true
+          },
+          "ua_high_intent": {
+            "type": "Output",
+            "name": "LMH_HighIntent_UA",
+            "maxRows": 1,
+            "fields": [
+              { "id": "of_hi_user_id", "name": "user_id",    "sourceFieldId": "tbl_high_intent.fld_hi_user_id"    },
+              { "id": "of_hi_signal",  "name": "intent_signal","sourceFieldId": "tbl_high_intent.fld_hi_signal"  }
+            ]
+          },
+          "ua_broad": {
+            "type": "Output",
+            "name": "LMH_Broad_UA",
+            "maxRows": 1,
+            "fields": [
+              { "id": "of_bh_user_id",    "name": "user_id",        "sourceFieldId": "tbl_broad_health.fld_bh_user_id"    },
+              { "id": "of_bh_page_views", "name": "page_view_count","sourceFieldId": "tbl_broad_health.fld_bh_page_views" }
+            ]
+          },
+          "ua_es": {
+            "type": "Output",
+            "name": "LMH_ES_UA",
+            "maxRows": 1,
+            "fields": [
+              { "id": "of_es_user_id", "name": "user_id", "sourceFieldId": "tbl_spanish.fld_es_user_id" },
+              { "id": "of_es_lang",    "name": "lang",    "sourceFieldId": "tbl_spanish.fld_es_lang"    }
+            ]
+          }
+        },
+        "connections": [
+          { "from": "imp_health_events",      "to": "tbl_health_events"     },
+          { "from": "imp_appt",               "to": "tbl_appt_requests"     },
+          { "from": "tbl_health_events",      "to": "fo_high_intent_filter" },
+          { "from": "tbl_health_events",      "to": "fo_broad_filter"       },
+          { "from": "tbl_health_events",      "to": "fo_lang_detect"        },
+          { "from": "tbl_appt_requests",      "to": "fo_high_intent_filter" },
+          { "from": "fo_high_intent_filter",  "to": "tbl_high_intent"       },
+          { "from": "fo_broad_filter",        "to": "tbl_broad_health"      },
+          { "from": "fo_lang_detect",         "to": "tbl_spanish"           },
+          { "from": "tbl_high_intent",        "to": "ua_high_intent"        },
+          { "from": "tbl_broad_health",       "to": "ua_broad"              },
+          { "from": "tbl_spanish",            "to": "ua_es"                 }
+        ]
+      }
+    },
+    "media": {
+      "document": "# Media Plan — Luminary Health, Q3 2025 (NA)\n\n## Scope\n\nAdvertiser: Luminary Health (LMH). Markets: US (EN + ES). Flight: Jul 1 – Sep 30, 2025.\nObjective: prospecting + retargeting for appointment bookings.\n\n## Media Partners & Connectors\n\n- Meta (Facebook + Instagram) — connector: Direct Publisher (walled garden). Click tracking: On.\n- DV360 — connector: Google DV360 (served). Click tracking: On.\n- Yahoo DSP — connector: Yahoo DSP 3PAS (served). Click tracking: On.\n\n## Partner Campaigns & Ad Groups (external)\n\n- Meta campaign \"LMH_Q325_Prospecting_Meta\" with ad groups: AG_Meta_EN_HighIntent, AG_Meta_EN_Broad, AG_Meta_ES_HighIntent.\n- DV360 campaign \"LMH_Q325_Retarget_DV360\" with ad group: AG_DV360_Retarget.\n- Yahoo campaign \"LMH_Q325_Prospecting_Yahoo\" with ad group: AG_Yahoo_Prosp.\n\n## Placement Groups\n\n- PS_LMH_Q325_Meta_EN_Prosp — seat: Luminary Health, advertiser: LMH, binds to Meta campaign LMH_Q325_Prospecting_Meta.\n- PS_LMH_Q325_DV360_Retarget — seat: Luminary Health, advertiser: LMH, binds to DV360 campaign LMH_Q325_Retarget_DV360.\n- PS_LMH_Q325_Yahoo_Prosp — seat: Luminary Health, advertiser: LMH, binds to Yahoo campaign LMH_Q325_Prospecting_Yahoo.\n\n## Placements\n\nWalled garden (Meta, 1:1 placement ↔ ad group):\n\n- P_LMH_FB_EN_HighIntent → AG_Meta_EN_HighIntent. Feed, Adaptive. Under PS_LMH_Q325_Meta_EN_Prosp.\n- P_LMH_FB_EN_Broad → AG_Meta_EN_Broad. Feed, Adaptive. Under PS_LMH_Q325_Meta_EN_Prosp.\n- P_LMH_FB_ES_HighIntent → AG_Meta_ES_HighIntent. Feed, Adaptive. Under PS_LMH_Q325_Meta_EN_Prosp.\n\nServed (DV360, many placements : 1 ad group):\n\n- P_LMH_DV360_Ret_300x250 → AG_DV360_Retarget. Standard Display (HTML), 300x250. Under PS_LMH_Q325_DV360_Retarget.\n- P_LMH_DV360_Ret_728x90 → AG_DV360_Retarget. Standard Display (HTML), 728x90. Under PS_LMH_Q325_DV360_Retarget.\n- P_LMH_DV360_Ret_160x600 → AG_DV360_Retarget. Standard Display (HTML), 160x600. Under PS_LMH_Q325_DV360_Retarget.\n\nServed (Yahoo):\n\n- P_LMH_Yahoo_Prosp_300x250 → AG_Yahoo_Prosp. Standard Display (HTML), 300x250. Under PS_LMH_Q325_Yahoo_Prosp.\n\n## Experience Groups & Flights\n\n- EG_LMH_EN_HighIntent (Adaptive, LIVE) on P_LMH_FB_EN_HighIntent and the DV360 retarget placements.\n- EG_LMH_EN_Broad (Adaptive) on P_LMH_FB_EN_Broad.\n- EG_LMH_ES_HighIntent (Adaptive) on P_LMH_FB_ES_HighIntent and P_LMH_Yahoo_Prosp_300x250.\n\n## Creatives\n\n- crv_LMH_Hero_EN_Image (Adaptive, 300x250 / 1200x628) under EG_LMH_EN_HighIntent and EG_LMH_EN_Broad.\n- crv_LMH_Hero_EN_Video (Adaptive, 1080x1080) under EG_LMH_EN_HighIntent.\n- crv_LMH_Hero_ES_Image (Adaptive, 300x250) under EG_LMH_ES_HighIntent.\n\n## Landing Page Groups & Pages\n\n- LPS_LMH_US_EN_Q3 (scope: US English; EG_LMH_EN_HighIntent, EG_LMH_EN_Broad).\n- LPS_LMH_US_ES_Q3 (scope: US Spanish; EG_LMH_ES_HighIntent).\n\n## Pixels\n\n- PIX_Conv_Appointment — conversion pixel, targets creative crv_LMH_Hero_EN_Image.\n- PIX_Conv_AccountCreated — conversion pixel, targets placement P_LMH_DV360_Ret_300x250.\n",
+      "model": {
+        "entities": {
+          "m001":   { "type": "MediaPartner",     "name": "Meta (Facebook + Instagram)", "connector": "Direct Publisher",  "deliveryFormat": "Walled Garden", "clickTracking": "On",  "status": "planned" },
+          "m002":   { "type": "MediaPartner",     "name": "DV360",                       "connector": "Google DV360",       "deliveryFormat": "Served",        "clickTracking": "On",  "status": "planned" },
+          "m003":   { "type": "MediaPartner",     "name": "Yahoo DSP",                   "connector": "Yahoo DSP 3PAS",     "deliveryFormat": "Served",        "clickTracking": "On",  "status": "planned" },
+          "cmp001": { "type": "Campaign",         "name": "LMH_Q325_Prospecting_Meta",   "partner": "Meta",      "objective": "Prospecting", "status": "planned" },
+          "cmp002": { "type": "Campaign",         "name": "LMH_Q325_Retarget_DV360",    "partner": "DV360",     "objective": "Retargeting", "status": "planned" },
+          "cmp003": { "type": "Campaign",         "name": "LMH_Q325_Prospecting_Yahoo",  "partner": "Yahoo DSP", "objective": "Prospecting", "status": "planned" },
+          "ag001":  { "type": "AdGroup",          "name": "AG_Meta_EN_HighIntent",  "campaign": "LMH_Q325_Prospecting_Meta",  "status": "planned" },
+          "ag002":  { "type": "AdGroup",          "name": "AG_Meta_EN_Broad",       "campaign": "LMH_Q325_Prospecting_Meta",  "status": "planned" },
+          "ag003":  { "type": "AdGroup",          "name": "AG_Meta_ES_HighIntent",  "campaign": "LMH_Q325_Prospecting_Meta",  "status": "planned" },
+          "ag004":  { "type": "AdGroup",          "name": "AG_DV360_Retarget",      "campaign": "LMH_Q325_Retarget_DV360",    "status": "planned" },
+          "ag005":  { "type": "AdGroup",          "name": "AG_Yahoo_Prosp",         "campaign": "LMH_Q325_Prospecting_Yahoo", "status": "planned" },
+          "pg001":  { "type": "PlacementGroup",   "name": "PS_LMH_Q325_Meta_EN_Prosp",   "seat": "Luminary Health", "advertiser": "LMH", "campaign": "LMH_Q325_Prospecting_Meta",  "status": "planned" },
+          "pg002":  { "type": "PlacementGroup",   "name": "PS_LMH_Q325_DV360_Retarget",  "seat": "Luminary Health", "advertiser": "LMH", "campaign": "LMH_Q325_Retarget_DV360",    "status": "planned" },
+          "pg003":  { "type": "PlacementGroup",   "name": "PS_LMH_Q325_Yahoo_Prosp",     "seat": "Luminary Health", "advertiser": "LMH", "campaign": "LMH_Q325_Prospecting_Yahoo", "status": "planned" },
+          "tag001": { "type": "Placement", "name": "P_LMH_FB_EN_HighIntent",    "deliveryFormat": "Feed",             "creativeUnit": "Adaptive", "serving": "walled", "status": "planned" },
+          "tag002": { "type": "Placement", "name": "P_LMH_FB_EN_Broad",         "deliveryFormat": "Feed",             "creativeUnit": "Adaptive", "serving": "walled", "status": "planned" },
+          "tag003": { "type": "Placement", "name": "P_LMH_FB_ES_HighIntent",    "deliveryFormat": "Feed",             "creativeUnit": "Adaptive", "serving": "walled", "status": "planned" },
+          "tag004": { "type": "Placement", "name": "P_LMH_DV360_Ret_300x250",   "size": "300x250", "deliveryFormat": "Standard Display", "creativeUnit": "Standard", "serving": "served", "status": "planned" },
+          "tag005": { "type": "Placement", "name": "P_LMH_DV360_Ret_728x90",    "size": "728x90",  "deliveryFormat": "Standard Display", "creativeUnit": "Standard", "serving": "served", "status": "planned" },
+          "tag006": { "type": "Placement", "name": "P_LMH_DV360_Ret_160x600",   "size": "160x600", "deliveryFormat": "Standard Display", "creativeUnit": "Standard", "serving": "served", "status": "planned" },
+          "tag007": { "type": "Placement", "name": "P_LMH_Yahoo_Prosp_300x250", "size": "300x250", "deliveryFormat": "Standard Display", "creativeUnit": "Standard", "serving": "served", "status": "planned" },
+          "eg001":  { "type": "ExperienceGroup", "name": "EG_LMH_EN_HighIntent", "creativeUnit": "Adaptive", "servingStatus": "LIVE",   "currentFlight": "Flight_LMH_Q3_Main",  "status": "live"    },
+          "eg002":  { "type": "ExperienceGroup", "name": "EG_LMH_EN_Broad",      "creativeUnit": "Adaptive", "servingStatus": "Active", "currentFlight": "Flight_LMH_Q3_Broad", "status": "planned" },
+          "eg003":  { "type": "ExperienceGroup", "name": "EG_LMH_ES_HighIntent", "creativeUnit": "Adaptive", "servingStatus": "Active", "currentFlight": "Flight_LMH_Q3_ES",    "status": "planned" },
+          "crv001": { "type": "Creative", "name": "crv_LMH_Hero_EN_Image", "creativeUnit": "Adaptive", "sizes": "300x250 / 1200x628", "costType": "Display Interactive", "status": "planned" },
+          "crv002": { "type": "Creative", "name": "crv_LMH_Hero_EN_Video", "creativeUnit": "Adaptive", "sizes": "1080x1080",          "costType": "Display Interactive", "status": "planned" },
+          "crv003": { "type": "Creative", "name": "crv_LMH_Hero_ES_Image", "creativeUnit": "Adaptive", "sizes": "300x250",            "costType": "Display Interactive", "status": "planned" },
+          "LPS001": { "type": "LandingPageGroup", "name": "LPS_LMH_US_EN_Q3", "scope": "US English", "status": "planned" },
+          "LPS002": { "type": "LandingPageGroup", "name": "LPS_LMH_US_ES_Q3", "scope": "US Spanish", "status": "planned" },
+          "lp001":  { "type": "LandingPage", "name": "lp_default_en",  "condition": "Default",  "url": "luminaryhealth.com/q3-en",    "status": "planned" },
+          "lp002":  { "type": "LandingPage", "name": "lp_targeted_en", "condition": "Targeted", "url": "luminaryhealth.com/q3-en-hi", "status": "planned" },
+          "lp003":  { "type": "LandingPage", "name": "lp_default_es",  "condition": "Default",  "url": "luminaryhealth.com/q3-es",    "status": "planned" },
+          "PIX001": { "type": "Pixel", "name": "PIX_Conv_Appointment",    "scope": "conversion", "pixelType": "conversion", "tracksInteraction": "Impression", "notificationType": "Client", "targetingType": "CREATIVE",   "status": "planned" },
+          "PIX002": { "type": "Pixel", "name": "PIX_Conv_AccountCreated", "scope": "conversion", "pixelType": "conversion", "tracksInteraction": "Impression", "notificationType": "Client", "targetingType": "PLACEMENT",  "status": "planned" }
+        },
+        "connections": [
+          { "from": "m001",   "to": "pg001"   },
+          { "from": "m002",   "to": "pg002"   },
+          { "from": "m003",   "to": "pg003"   },
+          { "from": "cmp001", "to": "ag001"   },
+          { "from": "cmp001", "to": "ag002"   },
+          { "from": "cmp001", "to": "ag003"   },
+          { "from": "cmp002", "to": "ag004"   },
+          { "from": "cmp003", "to": "ag005"   },
+          { "from": "pg001",  "to": "cmp001"  },
+          { "from": "pg002",  "to": "cmp002"  },
+          { "from": "pg003",  "to": "cmp003"  },
+          { "from": "pg001",  "to": "tag001"  },
+          { "from": "pg001",  "to": "tag002"  },
+          { "from": "pg001",  "to": "tag003"  },
+          { "from": "pg002",  "to": "tag004"  },
+          { "from": "pg002",  "to": "tag005"  },
+          { "from": "pg002",  "to": "tag006"  },
+          { "from": "pg003",  "to": "tag007"  },
+          { "from": "tag001", "to": "ag001"   },
+          { "from": "tag002", "to": "ag002"   },
+          { "from": "tag003", "to": "ag003"   },
+          { "from": "tag004", "to": "ag004"   },
+          { "from": "tag005", "to": "ag004"   },
+          { "from": "tag006", "to": "ag004"   },
+          { "from": "tag007", "to": "ag005"   },
+          { "from": "tag001", "to": "eg001"   },
+          { "from": "tag004", "to": "eg001"   },
+          { "from": "tag005", "to": "eg001"   },
+          { "from": "tag006", "to": "eg001"   },
+          { "from": "tag002", "to": "eg002"   },
+          { "from": "tag003", "to": "eg003"   },
+          { "from": "tag007", "to": "eg003"   },
+          { "from": "eg001",  "to": "crv001"  },
+          { "from": "eg001",  "to": "crv002"  },
+          { "from": "eg002",  "to": "crv001"  },
+          { "from": "eg003",  "to": "crv003"  },
+          { "from": "crv001", "to": "LPS001"  },
+          { "from": "crv002", "to": "LPS001"  },
+          { "from": "crv003", "to": "LPS002"  },
+          { "from": "LPS001", "to": "eg001"   },
+          { "from": "LPS001", "to": "eg002"   },
+          { "from": "LPS002", "to": "eg003"   },
+          { "from": "LPS001", "to": "lp001"   },
+          { "from": "LPS001", "to": "lp002"   },
+          { "from": "LPS002", "to": "lp003"   },
+          { "from": "crv001", "to": "PIX001"  },
+          { "from": "tag004", "to": "PIX002"  }
+        ]
+      }
+    },
+    "creative": {
+      "document": "",
+      "model": null
+    }
+  }
+}
