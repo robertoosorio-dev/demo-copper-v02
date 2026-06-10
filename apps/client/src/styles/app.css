@@ -54,6 +54,7 @@
 .modal-btn--cancel:hover { color: var(--fg); }
 .modal-btn--create { background: var(--accent); color: #fff; border-color: var(--accent); }
 .modal-btn--create:disabled { opacity: 0.45; cursor: default; }
+.modal-error { font-size: 12px; color: #e57373; padding: 4px 0; }
 
 /* ── QA / TRANSACTION VIEWER ── */
 .qa-shell {

@@ -100,6 +100,7 @@ function ProjectPicker({
 function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string) => Promise<void> }) {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
@@ -109,9 +110,11 @@ function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate:
     const trimmed = name.trim();
     if (!trimmed || busy) return;
     setBusy(true);
+    setError(null);
     try {
       await onCreate(trimmed);
-    } finally {
+    } catch (err) {
+      setError((err as Error).message ?? "Failed to create project");
       setBusy(false);
     }
   }
@@ -129,6 +132,7 @@ function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate:
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Escape" && onClose()}
           />
+          {error && <div className="modal-error">{error}</div>}
           <div className="modal-actions">
             <button type="button" className="modal-btn modal-btn--cancel" onClick={onClose} disabled={busy}>
               Cancel
