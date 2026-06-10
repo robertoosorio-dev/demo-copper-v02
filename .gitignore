@@ -8,6 +8,10 @@ dist/
 build/
 *.tsbuildinfo
 
+# TypeScript compiled .js artifacts that sometimes land in src/ alongside .tsx sources
+apps/client/src/**/*.js
+apps/*/src/**/*.js
+
 # Environment — NEVER commit
 .env
 .env.local
