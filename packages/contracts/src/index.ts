@@ -203,6 +203,12 @@ export interface OutputEntity {
   fields: OutputField[];
 }
 
+export interface ImpressionEntity {
+  type: "Impression";
+  name: string;
+  fields: Field[]; // inbound context attributes: dmp_id, geo, device, placement_id
+}
+
 // ── B2: Media-plan entity types ───────────────────────────────────────────────
 
 export type EntityStatus = "planned" | "synced" | "live" | "modified" | "drifted";
@@ -304,6 +310,7 @@ export interface AdGroupEntity {
 // ── Union types ───────────────────────────────────────────────────────────────
 
 export type DataPlanEntity =
+  | ImpressionEntity
   | TableEntity
   | ImportEntity
   | FilterEntity

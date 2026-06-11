@@ -38,11 +38,19 @@ ${mediaDoc}
 
 ## ENTITY TYPE REFERENCE
 Data plan entity types and key fields:
-  Table     — name, tableType (Input|Transform|Standard), fields[]
-  Import    — name, source, frequency, syncMode
-  Filter    — name, predicate
-  AlgoAI    — name, optimization, promoted (boolean)
-  Output    — name, maxRows, fields[]
+  Impression — the runtime entry context. One per plan. Fields: dmp_id, geo, device,
+               placement_id. NOT a stored table — it is the inbound signal the plan
+               activates on.
+  Table      — stored data the plan works with (tableType: Input|Transform|Standard).
+               Input = ETL'd read-only source. Transform = derived from other tables.
+               Standard = anything else.
+  Import     — ETL descriptor for a Table: source, frequency, syncMode.
+  Filter     — activation rule: predicate gate (e.g. "by zip", "by segment",
+               "eligibility check"). Maps impression context to a table lookup.
+  AlgoAI     — activation rule: algorithmic/ML recommendation (1:N, produces ranked
+               candidates). Fields: optimization (CTR|CVR|Route), promoted (boolean).
+  Output     — the plan's goal. maxRows (1=scalar, >1=recommendations). fields[] each
+               have a sourceFieldId pointing to a Table field or $impression.* attribute.
 
 Media plan entity types and key fields:
   MediaPartner    — name, connector, deliveryFormat, status
@@ -64,6 +72,8 @@ Status values: planned | synced | live | modified | drifted
 3. For modifyEntity, use the exact entity id from the entity list above.
 4. New entity ids follow the existing pattern (e.g. "m004" for a new MediaPartner).
 5. If a request cannot be fulfilled within the schema, explain in "reply" and return empty ops: [].
+6. Every data plan must include at least one Output entity. If a request is plausible for output (even loosely), propose Output fields. Err on the side of inclusion.
+7. The default data plan shape is: Impression → Filter or AlgoAI (activation rule) → Table → Output. A plan with only Table entities and no activation rule and no Output is incomplete — always propose the activation shape.
 
 ## RESPONSE FORMAT
 Respond with a single valid JSON object. No markdown fences, no comments, no text outside the JSON.
