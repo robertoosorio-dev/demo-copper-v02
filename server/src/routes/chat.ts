@@ -5,7 +5,7 @@ import { routeLLM } from "../llm/router.js";
 import { buildSystemPrompt } from "../llm/systemPrompt.js";
 import { applyOps } from "../llm/applyOps.js";
 
-export function makeChatRouter(store: ProjectStore): Router {
+export function makeChatRouter(store: ProjectStore, kbContent = ""): Router {
   const router = Router();
 
   // POST /api/projects/:id/chat
@@ -25,7 +25,7 @@ export function makeChatRouter(store: ProjectStore): Router {
     const version = clientVersion ?? await store.loadLatestVersion(projectId);
     if (!version) return res.status(404).json({ error: "Project not found" });
 
-    const systemPrompt = buildSystemPrompt(version);
+    const systemPrompt = buildSystemPrompt(version, kbContent);
 
     // Build user message with recent conversation context
     const historyLines = exchanges.slice(-6).map((e) =>

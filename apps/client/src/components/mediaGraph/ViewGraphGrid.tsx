@@ -223,47 +223,50 @@ export default function ViewGraphGrid({ model, organizeBy, selection, onSelectio
 
   return (
     <div className="mg-v2" ref={containerRef}>
-      <svg className="mg-v2-svg" style={{ width: canvasW, height: canvasH }}>
-        <defs>
-          <marker id="gg-arrow" viewBox="0 0 10 10" refX={8} refY={5} markerWidth={4} markerHeight={4} orient="auto-start-reverse">
-            <path d="M2 2L8 5L2 8" fill="none" stroke="#c8c5ba" strokeWidth={1.5} strokeLinecap="round" />
-          </marker>
-        </defs>
-        {nodes.map((n) => {
-          if (!n.parentId) return null;
-          const par = nodes.find((p) => p.id === n.parentId);
-          if (!par) return null;
-          const rowIdx = par.rows.findIndex((r) => r.id === n.parentRowId);
-          const x1 = par.x + GG_NW;
-          const y1 = rowAnchorY(par, rowIdx);
-          const x2 = n.x;
-          const y2 = n.y + HDR_H / 2;
-          const mx = (x1 + x2) / 2;
-          const tm2 = TYPE_META[n.type] ?? TYPE_META.MediaPartner;
-          return (
-            <g key={`edge-${n.id}`}>
-              <path d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`} fill="none" stroke={tm2.c} strokeWidth={1.5} strokeOpacity={0.4} markerEnd="url(#gg-arrow)" />
-              <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 5} textAnchor="middle" fontSize={9} fill={tm2.c} fontFamily="var(--font)" fontWeight={600} letterSpacing=".5px" style={{ textTransform: "uppercase" }}>
-                {tm2.label}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
+      {/* In-flow wrapper gives the overflow:auto parent a real scroll extent */}
+      <div style={{ position: "relative", width: canvasW, height: canvasH }}>
+        <svg className="mg-v2-svg" style={{ width: canvasW, height: canvasH }}>
+          <defs>
+            <marker id="gg-arrow" viewBox="0 0 10 10" refX={8} refY={5} markerWidth={4} markerHeight={4} orient="auto-start-reverse">
+              <path d="M2 2L8 5L2 8" fill="none" stroke="#c8c5ba" strokeWidth={1.5} strokeLinecap="round" />
+            </marker>
+          </defs>
+          {nodes.map((n) => {
+            if (!n.parentId) return null;
+            const par = nodes.find((p) => p.id === n.parentId);
+            if (!par) return null;
+            const rowIdx = par.rows.findIndex((r) => r.id === n.parentRowId);
+            const x1 = par.x + GG_NW;
+            const y1 = rowAnchorY(par, rowIdx);
+            const x2 = n.x;
+            const y2 = n.y + HDR_H / 2;
+            const mx = (x1 + x2) / 2;
+            const tm2 = TYPE_META[n.type] ?? TYPE_META.MediaPartner;
+            return (
+              <g key={`edge-${n.id}`}>
+                <path d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`} fill="none" stroke={tm2.c} strokeWidth={1.5} strokeOpacity={0.4} markerEnd="url(#gg-arrow)" />
+                <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 5} textAnchor="middle" fontSize={9} fill={tm2.c} fontFamily="var(--font)" fontWeight={600} letterSpacing=".5px" style={{ textTransform: "uppercase" }}>
+                  {tm2.label}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
 
-      <div className="mg-v2-nodes" style={{ width: canvasW, height: canvasH }}>
-        {nodes.map((n) => (
-          <GGNode
-            key={n.id}
-            node={n}
-            entities={entities as Record<string, AnyEntity>}
-            connections={connections}
-            selection={selection}
-            onSelectionChange={onSelectionChange}
-            onExpand={handleExpand}
-            onClose={handleClose}
-          />
-        ))}
+        <div className="mg-v2-nodes" style={{ width: canvasW, height: canvasH }}>
+          {nodes.map((n) => (
+            <GGNode
+              key={n.id}
+              node={n}
+              entities={entities as Record<string, AnyEntity>}
+              connections={connections}
+              selection={selection}
+              onSelectionChange={onSelectionChange}
+              onExpand={handleExpand}
+              onClose={handleClose}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

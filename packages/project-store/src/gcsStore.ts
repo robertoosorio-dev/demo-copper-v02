@@ -1,21 +1,26 @@
 // GCS-backed project store.
 // Layout (from schema doc C):
-//   {project-id}/ver{NN}/project.json
-//   {project-id}/ver{NN}/transactions/{pass-id}/rlog_{seq}.json
+//   project_data/{project-id}/ver{NN}/project.json
+//   project_data/{project-id}/ver{NN}/transactions/{pass-id}/rlog_{seq}.json
 
 import type { Version, ReasoningLogEntry } from "@copper/contracts";
 import type { StorageProvider } from "./types.js";
 
+const ROOT = "project_data";
+
+function projectRoot(projectId: string): string {
+  return `${ROOT}/${projectId}`;
+}
+
 function verFolder(projectId: string, versionNum: number): string {
-  return `${projectId}/ver${String(versionNum).padStart(2, "0")}`;
+  return `${projectRoot(projectId)}/ver${String(versionNum).padStart(2, "0")}`;
 }
 
 export class ProjectStoreGCS {
   constructor(private readonly storage: StorageProvider) {}
 
   async listProjects(): Promise<Array<{ id: string; name: string; version: number; updatedAt: string }>> {
-    // Projects are top-level "folders" in the bucket
-    const folders = await this.storage.listFolders("");
+    const folders = await this.storage.listFolders(ROOT);
     const results = [];
     for (const projectId of folders) {
       try {
@@ -44,8 +49,7 @@ export class ProjectStoreGCS {
   }
 
   async loadLatestVersion(projectId: string): Promise<Version | null> {
-    // List ver* folders and pick the highest
-    const folders = await this.storage.listFolders(projectId);
+    const folders = await this.storage.listFolders(projectRoot(projectId));
     const verFolders = folders
       .filter((f) => /^ver\d+$/.test(f))
       .sort()
@@ -89,7 +93,7 @@ export class ProjectStoreGCS {
     authoredBy: "user" | "system";
     createdAt: string;
   }>> {
-    const folders = await this.storage.listFolders(projectId);
+    const folders = await this.storage.listFolders(projectRoot(projectId));
     const verFolders = folders.filter((f) => /^ver\d+$/.test(f)).sort();
     const results: Array<{ versionNum: number; parentVersion: number | null; authoredBy: "user" | "system"; createdAt: string }> = [];
     for (const folder of verFolders) {
@@ -113,8 +117,7 @@ export class ProjectStoreGCS {
   }
 
   async validate(): Promise<void> {
-    // Smoke-test: try listing top-level folders
-    await this.storage.listFolders("");
+    await this.storage.listFolders(ROOT);
     console.log("[project-store] ✅ GCS store validated");
   }
 }

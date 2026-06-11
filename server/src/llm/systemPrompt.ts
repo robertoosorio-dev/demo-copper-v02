@@ -1,6 +1,6 @@
 import type { Version } from "@copper/contracts";
 
-export function buildSystemPrompt(version: Version): string {
+export function buildSystemPrompt(version: Version, kbContent = ""): string {
   const dataEntities  = version.plans.data.model?.entities  ?? {};
   const mediaEntities = version.plans.media.model?.entities ?? {};
 
@@ -15,8 +15,14 @@ export function buildSystemPrompt(version: Version): string {
   const dataDoc  = version.plans.data.document?.trim()  || "(empty)";
   const mediaDoc = version.plans.media.document?.trim() || "(empty)";
 
+  const kbSection = kbContent.trim()
+    ? `## DOMAIN KNOWLEDGE\n\n${kbContent.trim()}\n\n---\n\n`
+    : "";
+
   return `You are an AI planning assistant for CoPPER, a media campaign planning platform.
 Project: "${version.name}"
+
+${kbSection}
 
 ## CURRENT DATA PLAN (${Object.keys(dataEntities).length} entities)
 ${dataList}
@@ -60,7 +66,17 @@ Status values: planned | synced | live | modified | drifted
 5. If a request cannot be fulfilled within the schema, explain in "reply" and return empty ops: [].
 
 ## RESPONSE FORMAT
-Respond with a single valid JSON object — no markdown fences, no text before or after:
+Respond with a single valid JSON object. No markdown fences, no comments, no text outside the JSON.
+
+The "ops" array contains zero or more operations chosen from these six forms:
+  updateDocument  — {"op":"updateDocument","planType":"data","document":"full markdown text"}
+  modifyEntity    — {"op":"modifyEntity","id":"existing_id","patch":{"field":"newValue"},"planType":"data"}
+  addEntity       — {"op":"addEntity","id":"new_id","entity":{"type":"TypeName","name":"...","status":"planned"},"planType":"data"}
+  removeEntity    — {"op":"removeEntity","id":"existing_id","planType":"data"}
+  addConnection   — {"op":"addConnection","connection":{"from":"id1","to":"id2"},"planType":"data"}
+  removeConnection— {"op":"removeConnection","from":"id1","to":"id2","planType":"data"}
+Use "planType":"media" for media plan ops.
+
 {
   "reasoning": {
     "problem": "Precise statement of what the user wants",
@@ -68,15 +84,7 @@ Respond with a single valid JSON object — no markdown fences, no text before o
     "justification": "Why this approach is correct given the schema and project state",
     "alternativesConsidered": ["Other approaches you considered"]
   },
-  "ops": [
-    // Zero or more ops from this set:
-    // {"op":"updateDocument","planType":"data"|"media","document":"full markdown text"}
-    // {"op":"modifyEntity","id":"existing_id","patch":{"field":"newValue"},"planType":"data"|"media"}
-    // {"op":"addEntity","id":"new_id","entity":{"type":"TypeName","name":"...","status":"planned",...},"planType":"data"|"media"}
-    // {"op":"removeEntity","id":"existing_id","planType":"data"|"media"}
-    // {"op":"addConnection","connection":{"from":"id1","to":"id2"},"planType":"data"|"media"}
-    // {"op":"removeConnection","from":"id1","to":"id2","planType":"data"|"media"}
-  ],
-  "reply": "Conversational explanation of what you did or why you couldn't fulfill the request"
+  "ops": [],
+  "reply": "Conversational explanation of what you did or why you could not fulfill the request"
 }`;
 }

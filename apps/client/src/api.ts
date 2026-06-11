@@ -115,3 +115,30 @@ export function getVersionDiff(id: string, versionNum: number): Promise<VersionD
 }
 
 export type { ReasoningLogEntry };
+
+// ── Admin API ─────────────────────────────────────────────────────────────────
+
+export interface AdminListResult {
+  folders: string[];
+  files: string[];
+}
+
+export function adminList(prefix: string): Promise<AdminListResult> {
+  return get<AdminListResult>(`/admin/list?prefix=${encodeURIComponent(prefix)}`);
+}
+
+export function adminReadFile(path: string): Promise<{ path: string; content: string }> {
+  return get(`/admin/file?path=${encodeURIComponent(path)}`);
+}
+
+export function adminWriteFile(path: string, content: string): Promise<{ ok: boolean; path: string }> {
+  const res = fetch(`${BASE}/admin/file`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path, content }),
+  });
+  return res.then((r) => {
+    if (!r.ok) throw new Error(`PUT /admin/file → ${r.status}`);
+    return r.json();
+  });
+}

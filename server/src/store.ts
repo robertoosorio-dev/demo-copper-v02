@@ -90,7 +90,7 @@ export class FixtureStore implements ProjectStore {
   }
 
   async createProject(name: string): Promise<Version> {
-    const id = `project-${randomUUID().slice(0, 8)}`;
+    const id = `${slugify(name)}-${randomUUID().replace(/-/g, "").slice(0, 5)}`;
     const blank = makeBlankVersion(id, name);
     this.projects.set(id, [blank]);
     console.log(`[store] ✅ New project created: "${name}" (${id})`);
@@ -146,6 +146,16 @@ export class FixtureStore implements ProjectStore {
 
 // ── M2: GCS-backed store (activated when GCS credentials are present) ─────────
 // Imported lazily so M1 starts without GCS configured.
+
+function slugify(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40)
+    .replace(/-+$/, "");
+  return slug || "project";
+}
 
 export async function createStore(): Promise<ProjectStore> {
   const hasGCS =

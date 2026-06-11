@@ -12,10 +12,12 @@ if (process.env.NODE_ENV !== "production") {
 import express from "express";
 import cors from "cors";
 import { createStore } from "./store.js";
+import { loadKB } from "./kb.js";
 import { makeProjectsRouter } from "./routes/projects.js";
 import { makeTransactionsRouter } from "./routes/transactions.js";
 import { makeHistoryRouter } from "./routes/history.js";
 import { makeChatRouter } from "./routes/chat.js";
+import { makeAdminRouter } from "./routes/admin.js";
 
 const PORT = process.env.PORT ?? 3001;
 const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "http://localhost:5173";
@@ -26,11 +28,12 @@ app.use(express.json({ limit: "10mb" }));
 
 app.get("/health", (_req, res) => res.json({ ok: true, version: "v2" }));
 
-const store = await createStore();
+const [store, kbContent] = await Promise.all([createStore(), loadKB()]);
 app.use("/api/projects", makeProjectsRouter(store));
 app.use("/api/projects", makeTransactionsRouter(store));
 app.use("/api/projects", makeHistoryRouter(store));
-app.use("/api/projects", makeChatRouter(store));
+app.use("/api/projects", makeChatRouter(store, kbContent));
+app.use("/api/admin", makeAdminRouter());
 
 // Serve built client in production (same container, no CORS needed)
 const DIST = path.resolve(__dirname, "../../apps/client/dist");

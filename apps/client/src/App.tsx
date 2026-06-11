@@ -8,6 +8,7 @@ import ProjectModel from "./components/ProjectModel.js";
 import VersionBar from "./components/VersionBar.js";
 import QAViewer from "./components/QAViewer.js";
 import HistoryPanel from "./components/HistoryPanel.js";
+import AdminPanel from "./components/AdminPanel.js";
 import {
   IconAffiliate,
   IconDatabase,
@@ -20,6 +21,7 @@ import {
   IconCloudX,
   IconBug,
   IconHistory,
+  IconSettings,
 } from "@tabler/icons-react";
 
 const LLM_MODELS = [
@@ -196,6 +198,7 @@ function MainApp() {
 
   const isQA      = location.pathname === "/qa";
   const isHistory = location.pathname === "/history";
+  const isAdmin   = location.pathname === "/admin";
 
   return (
     <div className="app-shell">
@@ -233,6 +236,9 @@ function MainApp() {
           <Link to={isQA ? "/" : "/qa"} className={`icon-btn${isQA ? " active" : ""}`} title={isQA ? "Back to main view" : "Transaction / QA Viewer"}>
             <IconBug size={15} />
           </Link>
+          <Link to={isAdmin ? "/" : "/admin"} className={`icon-btn icon-btn--admin${isAdmin ? " active" : ""}`} title={isAdmin ? "Back to main view" : "Admin"}>
+            <IconSettings size={15} />
+          </Link>
           <div className="sep" />
           <select className="sel" value={llmModel} onChange={(e) => setLlmModel(e.target.value)}>
             {LLM_MODELS.map((m) => (
@@ -242,7 +248,9 @@ function MainApp() {
         </div>
       </div>
 
-      {isHistory ? (
+      {isAdmin ? (
+        <AdminPanel />
+      ) : isHistory ? (
         <HistoryPanel />
       ) : isQA ? (
         <QAViewer />

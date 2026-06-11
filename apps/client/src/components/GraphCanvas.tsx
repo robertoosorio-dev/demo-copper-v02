@@ -95,9 +95,9 @@ export default function GraphCanvas() {
         <div className="region-band input-band"  style={{ left: 0,     width: div1X            }} />
         <div className="region-band flow-band"   style={{ left: div1X, width: div2X - div1X    }} />
         <div className="region-band output-band" style={{ left: div2X, right: 0                }} />
-        <div className="region-label rl-input"  style={{ left: 14          }}>Input · Impression &amp; Rule</div>
-        <div className="region-label rl-flow"   style={{ left: div1X + 14  }}>Tables &amp; Activation Flow</div>
-        <div className="region-label rl-output" style={{ left: div2X + 14  }}>Output · Outbound UA</div>
+        <div className="region-label rl-input"  style={{ left: 14          }}>INPUT</div>
+        <div className="region-label rl-flow"   style={{ left: div1X + 14  }}>TABLES AND DATA FLOW</div>
+        <div className="region-label rl-output" style={{ left: div2X + 14  }}>OUTPUT</div>
         <div className="region-divider" style={{ left: div1X }} />
         <div className="region-divider" style={{ left: div2X }} />
 

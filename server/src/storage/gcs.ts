@@ -1,11 +1,13 @@
 import { Storage } from "@google-cloud/storage";
 
-const BUCKET_NAME = process.env.GCS_BUCKET ?? "demo_activation";
-
 export class GCSStorageProvider {
   private _bucket: ReturnType<Storage["bucket"]>;
+  private _bucketName: string;
 
   constructor() {
+    // Read env vars inside the constructor so dotenv has already run by the time
+    // this is instantiated (module-level consts would be captured before dotenv).
+    this._bucketName = process.env.GCS_BUCKET ?? "demo_activation";
     const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
     if (!raw) throw new Error("[storage/gcs] GOOGLE_SERVICE_ACCOUNT_JSON env var is not set");
     let credentials: Record<string, unknown>;
@@ -15,16 +17,16 @@ export class GCSStorageProvider {
       throw new Error("[storage/gcs] GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON");
     }
     const client = new Storage({ credentials });
-    this._bucket = client.bucket(BUCKET_NAME);
+    this._bucket = client.bucket(this._bucketName);
   }
 
   async validate(): Promise<void> {
     try {
       await this._bucket.getFiles({ maxResults: 1 });
     } catch (err) {
-      throw new Error(`[storage/gcs] Bucket "${BUCKET_NAME}" not accessible: ${(err as Error).message}`);
+      throw new Error(`[storage/gcs] Bucket "${this._bucketName}" not accessible: ${(err as Error).message}`);
     }
-    console.log(`[storage/gcs] ✅ Connected to bucket "${BUCKET_NAME}"`);
+    console.log(`[storage/gcs] ✅ Connected to bucket "${this._bucketName}"`);
   }
 
   async read(p: string): Promise<string> {
@@ -49,7 +51,7 @@ export class GCSStorageProvider {
   }
 
   async listFolders(prefix: string): Promise<string[]> {
-    const queryPrefix = prefix.endsWith("/") ? prefix : `${prefix}/`;
+    const queryPrefix = (prefix === "" || prefix.endsWith("/")) ? prefix : `${prefix}/`;
     const [, , apiResponse] = await this._bucket.getFiles({
       prefix: queryPrefix,
       delimiter: "/",
