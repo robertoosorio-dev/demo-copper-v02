@@ -1,7 +1,9 @@
-# QA Runbook — KB Test Loop
+# QA Runbook — KB Test Protocol
 
-This is the standing protocol for running and recording KB test cases.
-The fix procedure lives in `specs/kb_rewrite_todo.md`.
+This is the **how-to-run** document: server setup, endpoint reference, pass criteria notation, and the diagnostic checklist.
+
+The **test log** (what was tested, findings, fixes) lives in `specs/test_log.md`. Read that first.
+The **fix procedure and bug queue** lives in `specs/kb_rewrite_todo.md`.
 
 ---
 
@@ -66,55 +68,4 @@ Each test defines criteria as a checklist. A test PASSES only when every item is
 
 ## Test log
 
-Record every test run here. **Do not delete failures** — the failure record is how we know what the KB fixed.
-
----
-
-### TC-001 — Zip activation with product recommendation, empty project
-
-**Status:** PASS ✅
-
-**Prompt:**
-```
-add impression, activation by zip and then a Products table and a ProductsByZip recommendation table
-```
-
-**Starting state:** Empty data plan (no existing entities)
-
-**Pass criteria:**
-- `types:[Impression, Table, Filter, Output]`
-- `tables:2` (Products and ProductsByZip)
-- `output_fields:any[sku, description, image, price, image_url]`
-- `no_type:AlgoAI` (zip lookup is a Filter, not a recommendation engine)
-
-**Run command:**
-```
-POST http://localhost:3001/api/debug/project/luminary-health-q3-2025/submit
-body: TEMP/test_empty_version.json  (see above for format)
-```
-
-#### Run 1 — 2026-06-11
-
-| Check | Result | Notes |
-|---|---|---|
-| types:[Impression,Table,Filter,Output] | PASS | Impression, Table×2, Filter, Output all present |
-| tables:2 | PASS | Products + ProductsByZip |
-| output_fields:any[sku,description,image,price] | FAIL | Output has: product_id, product_name, zip, distance_miles, geo — no description/image/price |
-| no_type:AlgoAI | PASS | Only Filter used |
-
-**Root cause:** `patterns.md` Pattern 2 (product recommendation) defines Products table with only 3 fields (product_id, name, category). The Output can only reference fields that exist on the Table. Pattern 2 needs richer product fields.
-
-**Fix:** Added `Rule: Output fields must cover downstream display needs` to `patterns.md` General rules section. Updated Pattern 2 (product rec) and Pattern 6 (eligibility+rec) with full commercial field set (sku, name, description, image_url, price) on the Products table and matching Output fields. Added Pattern 4 (geo/zip + product) combining the geo ETL shape with the commercial field set.
-
-#### Run 2 — 2026-06-11
-
-| Check | Result | Notes |
-|---|---|---|
-| types:[Impression,Table,Filter,Output] | PASS | All present |
-| tables:2 | PASS | Products (sku,name,description,image_url,price) + ProductsByZip |
-| output_fields:any[sku,description,image,price] | PASS | Output: sku, name, description, image_url, price |
-| no_type:AlgoAI | PASS | Filter used for zip lookup |
-
-**Status: PASS** ✅
-
----
+All test cases and run history are in `specs/test_log.md`.
