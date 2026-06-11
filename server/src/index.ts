@@ -18,6 +18,7 @@ import { makeTransactionsRouter } from "./routes/transactions.js";
 import { makeHistoryRouter } from "./routes/history.js";
 import { makeChatRouter } from "./routes/chat.js";
 import { makeAdminRouter } from "./routes/admin.js";
+import { makeDebugRouter } from "./routes/debug.js";
 
 const PORT = process.env.PORT ?? 3001;
 const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "http://localhost:5173";
@@ -34,6 +35,7 @@ app.use("/api/projects", makeTransactionsRouter(store));
 app.use("/api/projects", makeHistoryRouter(store));
 app.use("/api/projects", makeChatRouter(store, kbContent));
 app.use("/api/admin", makeAdminRouter());
+app.use("/api/debug", makeDebugRouter(store, kbContent));
 
 // Serve built client in production (same container, no CORS needed)
 const DIST = path.resolve(__dirname, "../../apps/client/dist");

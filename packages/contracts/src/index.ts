@@ -101,7 +101,13 @@ export interface ReasoningLogEntry {
   };
 
   producedChanges: string[]; // ProposedChange ids — zero is legal
-  contextSeen: string[]; // context file names / hashes seen during this pass
+  contextSeen: {
+    chat?: {
+      userMessage: string;
+      history: Array<{ role: "user" | "assistant"; content: string }>;
+    };
+    // future: kbSnippets?, projectSnapshot?
+  };
 }
 
 // ── A4. Proposed change ───────────────────────────────────────────────────────

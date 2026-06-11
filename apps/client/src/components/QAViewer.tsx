@@ -168,12 +168,22 @@ function EntryDetail({ entry }: { entry: ReasoningLogEntry }) {
         </section>
       )}
 
-      {entry.contextSeen.length > 0 && (
+      {entry.contextSeen.chat && (
         <section className="qa-section">
-          <h4>Context Seen</h4>
-          <ul className="qa-ctx">
-            {entry.contextSeen.map((c, i) => <li key={i}>{c}</li>)}
-          </ul>
+          <h4>Context — Chat</h4>
+          <div className="qa-ctx-chat">
+            <div className="qa-ctx-user"><strong>User:</strong> {entry.contextSeen.chat.userMessage}</div>
+            {entry.contextSeen.chat.history.length > 0 && (
+              <ul className="qa-ctx">
+                {entry.contextSeen.chat.history.map((h, i) => (
+                  <li key={i}>
+                    <strong>{h.role}:</strong>{" "}
+                    {h.content.length > 200 ? h.content.slice(0, 200) + "…" : h.content}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </section>
       )}
     </div>
