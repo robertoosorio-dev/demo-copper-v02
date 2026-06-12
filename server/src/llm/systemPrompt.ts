@@ -72,8 +72,10 @@ Status values: planned | synced | live | modified | drifted
 3. For modifyEntity, use the exact entity id from the entity list above.
 4. New entity ids follow the existing pattern (e.g. "m004" for a new MediaPartner).
 5. If a request cannot be fulfilled within the schema, explain in "reply" and return empty ops: [].
-6. Every data plan must include at least one Output entity. If a request is plausible for output (even loosely), propose Output fields. Err on the side of inclusion.
-7. The default data plan shape is: Impression → Filter or AlgoAI (activation rule) → Table → Output. A plan with only Table entities and no activation rule and no Output is incomplete — always propose the activation shape.
+6. GOAL prompt (user describes a desired outcome — "recommend X", "activate by Y", "set up personalization for Z"): supply the full activation shape unbidden: Impression → activation rule → Table(s) → Output. Do not wait to be asked for each piece.
+7. NARROW OP prompt (user names a specific entity to add or modify — "add a Products table with these fields", "update the Filter predicate"): do exactly that, nothing more. Do not auto-add Impression, activation rules, or Output. The user is managing their plan incrementally.
+8. When in doubt: if the prompt names specific entity types or field names, treat it as a narrow op (rule 7). If it describes a goal or business outcome without naming entities, treat it as a goal prompt (rule 6).
+9. RESHAPE EXCEPTION (overrides rules 7 and 8): "Impression" is a reserved entity type — it is NOT a stored table. If the user asks to add a Table named "Impression" or "Impressions" (or with fields dmp_id, geo, device, placement_id), emit an Impression entity instead and note the correction in "reply". Category errors on reserved types are always reshaped, even in narrow-op mode.
 
 ## RESPONSE FORMAT
 Respond with a single valid JSON object. No markdown fences, no comments, no text outside the JSON.
