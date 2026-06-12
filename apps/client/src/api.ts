@@ -142,3 +142,108 @@ export function adminWriteFile(path: string, content: string): Promise<{ ok: boo
     return r.json();
   });
 }
+
+// ── KB versioning ─────────────────────────────────────────────────────────────
+
+export interface KBVersionMeta {
+  realId: string;
+  label: string;
+  description: string;
+  by: "human" | "agent";
+  at: string;
+  superseded?: boolean;
+}
+
+export function adminKBVersions(): Promise<{ versions: KBVersionMeta[] }> {
+  return get("/admin/kb/versions");
+}
+
+export function adminKBCut(
+  label: string,
+  description: string,
+  by: "human" | "agent",
+): Promise<{ ok: boolean; version: KBVersionMeta }> {
+  return post("/admin/kb/cut", { label, description, by });
+}
+
+export function adminKBVersionFiles(realId: string): Promise<{ files: string[] }> {
+  return get(`/admin/kb/versions/${encodeURIComponent(realId)}/files`);
+}
+
+export function adminKBVersionFile(
+  realId: string,
+  name: string,
+): Promise<{ name: string; content: string }> {
+  return get(`/admin/kb/versions/${encodeURIComponent(realId)}/file?name=${encodeURIComponent(name)}`);
+}
+
+export function adminKBRollback(realId: string): Promise<{ ok: boolean; realId: string }> {
+  return post(`/admin/kb/versions/${encodeURIComponent(realId)}/rollback`, {});
+}
+
+// ── QA agent ──────────────────────────────────────────────────────────────────
+
+export interface QARunResult {
+  ops: unknown[];
+  reasoning: Record<string, unknown>;
+  systemPromptLength: number;
+}
+
+export interface QAJudgeResult {
+  judgment: "pass" | "fail";
+  diagnosis: string | null;
+  proposedFiles: Array<{ path: string; content: string; original: string }>;
+}
+
+const QA_EMPTY_VERSION = {
+  id: "qa-test", name: "QA Test Project", version: 1,
+  parentVersion: null, authoredBy: "system",
+  createdAt: new Date().toISOString(),
+  context: { contextFiles: [], exchanges: [] },
+  plans: {
+    data: { document: "", model: { entities: {}, connections: [] } },
+    media: { document: "", model: { entities: {}, connections: [] } },
+    creative: { document: "", model: null },
+  },
+};
+
+export async function adminQARun(
+  prompt: string,
+  kbOverride?: Array<{ path: string; content: string }>,
+): Promise<QARunResult> {
+  const body: Record<string, unknown> = { message: prompt, version: QA_EMPTY_VERSION, exchanges: [] };
+  if (kbOverride) body.kbOverride = kbOverride;
+  const res = await fetch(`${BASE}/debug/project/qa-test/submit`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`QA run failed: ${res.status}`);
+  const data = await res.json();
+  return {
+    ops: data.ops ?? [],
+    reasoning: data.rlogEntry?.reasoning ?? {},
+    systemPromptLength: data.diagnostics?.systemPromptLength ?? 0,
+  };
+}
+
+export async function adminQAFetchKBFiles(): Promise<Array<{ path: string; content: string }>> {
+  const { files } = await get<{ files: string[] }>("/admin/list?prefix=knowledge%2Fdata-activation%2F");
+  const results = await Promise.all(
+    files.filter((f: string) => f.endsWith(".md")).map(async (name: string) => {
+      const path = `knowledge/data-activation/${name}`;
+      const { content } = await get<{ content: string }>(`/admin/file?path=${encodeURIComponent(path)}`);
+      return { path, content };
+    }),
+  );
+  return results;
+}
+
+export function adminQAPropose(
+  prompt: string,
+  expected: string,
+  run: QARunResult,
+  kbFiles: Array<{ path: string; content: string }>,
+): Promise<QAJudgeResult> {
+  return post("/admin/qa/propose", {
+    prompt, expected, ops: run.ops, reasoning: run.reasoning, kbFiles,
+  });
+}
