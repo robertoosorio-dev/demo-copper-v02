@@ -29,13 +29,20 @@ app.use(express.json({ limit: "10mb" }));
 
 app.get("/health", (_req, res) => res.json({ ok: true, version: "v2" }));
 
-const [store, kbContent] = await Promise.all([createStore(), loadKB()]);
+const store = await createStore();
+let kbContent = await loadKB();
+const getKB = () => kbContent;
+const reloadKB = async () => {
+  kbContent = await loadKB();
+  console.log("[kb] reloaded in-memory");
+};
+
 app.use("/api/projects", makeProjectsRouter(store));
 app.use("/api/projects", makeTransactionsRouter(store));
 app.use("/api/projects", makeHistoryRouter(store));
-app.use("/api/projects", makeChatRouter(store, kbContent));
-app.use("/api/admin", makeAdminRouter());
-app.use("/api/debug", makeDebugRouter(store, kbContent));
+app.use("/api/projects", makeChatRouter(store, getKB));
+app.use("/api/admin", makeAdminRouter(reloadKB));
+app.use("/api/debug", makeDebugRouter(store, getKB));
 
 // Serve built client in production (same container, no CORS needed)
 const DIST = path.resolve(__dirname, "../../apps/client/dist");

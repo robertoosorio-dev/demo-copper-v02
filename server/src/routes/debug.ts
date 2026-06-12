@@ -9,7 +9,18 @@ import { applyOps } from "../llm/applyOps.js";
 // Synchronous, verbose version of the chat route. Returns full diagnostics as plain JSON.
 // Designed for LLM test drivers that need to inspect ops, reasoning, and contextSeen
 // without parsing SSE or driving the UI.
-export function makeDebugRouter(store: ProjectStore, kbContent = ""): Router {
+function assembleKBFromOverride(files: Array<{ path: string; content: string }>): string {
+  return files
+    .slice()
+    .sort((a, b) => a.path.localeCompare(b.path))
+    .map((f) => {
+      const name = f.path.replace(/^knowledge\//, "");
+      return `## ${name}\n\n${f.content.trim()}`;
+    })
+    .join("\n\n---\n\n");
+}
+
+export function makeDebugRouter(store: ProjectStore, getKB: () => string = () => ""): Router {
   const router = Router();
 
   router.post("/project/:id/submit", async (req, res) => {
@@ -18,11 +29,13 @@ export function makeDebugRouter(store: ProjectStore, kbContent = ""): Router {
       llmModel = "claude-sonnet-4-6",
       exchanges = [],
       version: clientVersion,
+      kbOverride,
     } = req.body as {
       message: string;
       llmModel?: string;
       exchanges?: Exchange[];
       version?: Version;
+      kbOverride?: Array<{ path: string; content: string }>;
     };
 
     if (!message?.trim()) return res.status(400).json({ error: "message required" });
@@ -31,7 +44,10 @@ export function makeDebugRouter(store: ProjectStore, kbContent = ""): Router {
     const version = clientVersion ?? (await store.loadLatestVersion(projectId));
     if (!version) return res.status(404).json({ error: "Project not found" });
 
-    const systemPrompt = buildSystemPrompt(version, kbContent);
+    const effectiveKB = kbOverride?.length
+      ? assembleKBFromOverride(kbOverride)
+      : getKB();
+    const systemPrompt = buildSystemPrompt(version, effectiveKB);
 
     const historyLines = exchanges.slice(-6).map((e) =>
       `${e.role === "user" ? "User" : "Assistant"}: ${e.text}`,
