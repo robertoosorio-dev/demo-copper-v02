@@ -2,14 +2,6 @@ import { Router } from "express";
 import { GCSStorageProvider } from "../storage/gcs.js";
 import { routeLLM } from "../llm/router.js";
 import { extractJSON } from "../llm/utils.js";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __adminDirname = path.dirname(fileURLToPath(import.meta.url));
-// Resolve the client cards source directory relative to this file (server/src/routes → repo root)
-const CARDS_SRC_DIR = path.resolve(__adminDirname, "../../../apps/client/src/components/cards");
-
 // ── Version metadata ──────────────────────────────────────────────────────────
 
 export interface VersionMeta {
@@ -335,34 +327,6 @@ ${kbFiles.map((f) => `--- ${f.path} ---\n${f.content}`).join("\n\n")}`;
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
-  });
-
-  // ── Card TSX source editing ───────────────────────────────────────────────────
-  // Only available in local dev — in Railway the src/ tree doesn't exist after build.
-
-  function cardTypeToFilename(cardType: string): string {
-    return `${cardType.charAt(0).toUpperCase()}${cardType.slice(1)}Card.tsx`;
-  }
-
-  // GET /api/admin/card-source/:cardType
-  router.get("/card-source/:cardType", (req, res) => {
-    const file = path.join(CARDS_SRC_DIR, cardTypeToFilename(req.params.cardType));
-    if (!fs.existsSync(file)) {
-      return res.status(404).json({ error: `Source file not found: ${file}` });
-    }
-    res.json({ cardType: req.params.cardType, source: fs.readFileSync(file, "utf8") });
-  });
-
-  // PUT /api/admin/card-source/:cardType
-  router.put("/card-source/:cardType", (req, res) => {
-    const { source } = req.body as { source: string };
-    if (typeof source !== "string") return res.status(400).json({ error: "source required" });
-    const file = path.join(CARDS_SRC_DIR, cardTypeToFilename(req.params.cardType));
-    if (!fs.existsSync(file)) {
-      return res.status(404).json({ error: `Source file not found: ${file}` });
-    }
-    fs.writeFileSync(file, source, "utf8");
-    res.json({ ok: true, cardType: req.params.cardType });
   });
 
   return router;

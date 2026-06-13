@@ -3,13 +3,12 @@ import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { json as jsonLang } from "@codemirror/lang-json";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { javascript } from "@codemirror/lang-javascript";
 import { CARD_REGISTRY } from "./cards/registry.js";
 import {
   adminList, adminReadFile, adminWriteFile,
   adminKBVersions, adminKBCut, adminKBVersionFiles, adminKBVersionFile, adminKBRollback,
   adminQARun, adminQAFetchKBFiles, adminQAPropose,
-  seedCards, getCardHistory, getCardVersion, rollbackCard, updateCard, getCardSource, saveCardSource,
+  seedCards, getCardHistory, getCardVersion, rollbackCard, updateCard,
   type KBVersionMeta, type QARunResult, type QAJudgeResult, type CardDefinition, type CardVersionEntry,
 } from "../api.js";
 
@@ -667,15 +666,8 @@ function CardsTab() {
   const [edits, setEdits] = useState<{ whenToUse: string; whenNotToUse: string; fallbackText: string; examplePropsJson: string } | null>(null);
   const [savedEdits, setSavedEdits] = useState<{ whenToUse: string; whenNotToUse: string; fallbackText: string; examplePropsJson: string } | null>(null);
   const [cardSaving, setCardSaving] = useState(false);
-  const [cardPanel, setCardPanel] = useState<"behavior" | "source">("behavior");
-  const [sourceCode, setSourceCode] = useState<string>("");
-  const [savedSourceCode, setSavedSourceCode] = useState<string>("");
-  const [sourceLoading, setSourceLoading] = useState(false);
-  const [sourceSaving, setSourceSaving] = useState(false);
-  const [sourceMsg, setSourceMsg] = useState<string | null>(null);
 
   const displayDef = viewingVersion?.definition ?? selected;
-  const sourceDirty = sourceCode !== savedSourceCode;
   const cardDirty = edits !== null && savedEdits !== null && (
     edits.whenToUse !== savedEdits.whenToUse ||
     edits.whenNotToUse !== savedEdits.whenNotToUse ||
@@ -704,39 +696,11 @@ function CardsTab() {
     setSavedEdits(e);
   }
 
-  async function loadSource(cardType: string) {
-    setSourceLoading(true);
-    setSourceCode(""); setSavedSourceCode(""); setSourceMsg(null);
-    try {
-      const r = await getCardSource(cardType);
-      setSourceCode(r.source); setSavedSourceCode(r.source);
-    } catch {
-      setSourceMsg("Source not available (production build or file missing)");
-    } finally {
-      setSourceLoading(false);
-    }
-  }
-
-  async function handleSourceSave() {
-    if (!selected) return;
-    setSourceSaving(true); setSourceMsg(null);
-    try {
-      await saveCardSource(selected.cardType, sourceCode);
-      setSavedSourceCode(sourceCode);
-      setSourceMsg("Saved — Vite will hot-reload the component.");
-      setTimeout(() => setSourceMsg(null), 3000);
-    } catch (err) {
-      setSourceMsg(`Error: ${(err as Error).message}`);
-    } finally {
-      setSourceSaving(false);
-    }
-  }
-
   async function selectCard(def: CardDefinition) {
     setSelected(def);
     setViewingVersion(null);
     initEdits(def);
-    await Promise.all([loadHistory(def.cardType), loadSource(def.cardType)]);
+    await loadHistory(def.cardType);
   }
 
   async function handleCardSave() {
@@ -867,54 +831,6 @@ function CardsTab() {
           <div className="admin-empty">Select a card definition</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 14, fontSize: 12 }}>
-
-            {/* Sub-tab bar */}
-            <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--b)", paddingBottom: 8 }}>
-              {(["behavior", "source"] as const).map((p) => (
-                <button key={p} onClick={() => setCardPanel(p)}
-                  style={{ fontSize: 11, padding: "3px 12px", borderRadius: 4, border: "1px solid var(--b2)", cursor: "pointer",
-                    background: cardPanel === p ? "var(--blue-txt)" : "var(--bg3)",
-                    color: cardPanel === p ? "#fff" : "var(--txt2)", fontWeight: cardPanel === p ? 700 : 400 }}>
-                  {p === "behavior" ? "Behavior" : "Source TSX"}
-                </button>
-              ))}
-            </div>
-
-            {/* Source panel */}
-            {cardPanel === "source" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 11, color: "var(--txt3)", fontFamily: "var(--mono)" }}>
-                    {`${selected?.cardType.charAt(0).toUpperCase()}${selected?.cardType.slice(1)}Card.tsx`}
-                  </span>
-                  {sourceMsg && (
-                    <span style={{ fontSize: 11, color: sourceMsg.startsWith("Error") ? "var(--coral-txt)" : "var(--green-txt)", marginLeft: 8 }}>
-                      {sourceMsg}
-                    </span>
-                  )}
-                  <button className="admin-save-btn" style={{ marginLeft: "auto" }}
-                    disabled={!sourceDirty || sourceSaving || sourceLoading}
-                    onClick={() => void handleSourceSave()}>
-                    {sourceSaving ? "Saving…" : "Save"}
-                  </button>
-                </div>
-                {sourceLoading ? (
-                  <div style={{ color: "var(--txt3)", fontSize: 11 }}>Loading…</div>
-                ) : sourceCode ? (
-                  <CodeMirror
-                    value={sourceCode}
-                    onChange={setSourceCode}
-                    extensions={[javascript({ jsx: true, typescript: true })]}
-                    theme={oneDark}
-                    style={{ fontSize: 11, borderRadius: 4, overflow: "hidden", minHeight: 400 }}
-                  />
-                ) : (
-                  <div style={{ color: "var(--txt3)", fontSize: 11, fontStyle: "italic" }}>{sourceMsg ?? "No source available."}</div>
-                )}
-              </div>
-            )}
-
-            {cardPanel === "behavior" && <>
 
             {/* Live card preview */}
             {(() => {
@@ -1076,8 +992,6 @@ function CardsTab() {
                 ))}
               </div>
             )}
-
-            </>}
 
           </div>
         )}
