@@ -8,6 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@codemirror/lang-json": "^6.0.2",
     "@codemirror/lang-markdown": "^6.3.2",
     "@codemirror/theme-one-dark": "^6.1.2",
     "@copper/contracts": "*",

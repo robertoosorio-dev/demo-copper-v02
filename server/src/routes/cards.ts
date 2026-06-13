@@ -147,7 +147,7 @@ export function makeCardsRouter(): Router {
     try {
       const s = makeStorage();
       const { cardType } = req.params;
-      const patch = req.body as Partial<Pick<CardDefinition, "whenToUse" | "whenNotToUse" | "fallbackText" | "allowedActions">>;
+      const patch = req.body as Partial<Pick<CardDefinition, "whenToUse" | "whenNotToUse" | "fallbackText" | "allowedActions" | "exampleProps">>;
       const existingRaw = await s.read(`${UXCARDS_PREFIX}${cardType}.json`);
       const existing = JSON.parse(existingRaw) as CardDefinition;
       const updated: CardDefinition = {
@@ -156,6 +156,7 @@ export function makeCardsRouter(): Router {
         ...(patch.whenNotToUse !== undefined ? { whenNotToUse: patch.whenNotToUse } : {}),
         ...(patch.fallbackText !== undefined ? { fallbackText: patch.fallbackText } : {}),
         ...(patch.allowedActions !== undefined ? { allowedActions: patch.allowedActions } : {}),
+        ...(patch.exampleProps  !== undefined ? { exampleProps:  patch.exampleProps  } : {}),
       };
       await s.write(`${UXCARDS_PREFIX}${cardType}.json`, JSON.stringify(updated, null, 2));
       const newV = await appendVersion(s, cardType, updated, "admin", "Edited via admin panel");

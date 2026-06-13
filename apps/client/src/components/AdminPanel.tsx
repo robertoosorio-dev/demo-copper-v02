@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useCallback } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
+import { json as jsonLang } from "@codemirror/lang-json";
 import { oneDark } from "@codemirror/theme-one-dark";
+import { CARD_REGISTRY } from "./cards/registry.js";
 import {
   adminList, adminReadFile, adminWriteFile,
   adminKBVersions, adminKBCut, adminKBVersionFiles, adminKBVersionFile, adminKBRollback,
@@ -661,15 +663,16 @@ function CardsTab() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [viewingVersion, setViewingVersion] = useState<{ v: string; definition: CardDefinition } | null>(null);
   const [rollingBack, setRollingBack] = useState<string | null>(null);
-  const [edits, setEdits] = useState<{ whenToUse: string; whenNotToUse: string; fallbackText: string } | null>(null);
-  const [savedEdits, setSavedEdits] = useState<{ whenToUse: string; whenNotToUse: string; fallbackText: string } | null>(null);
+  const [edits, setEdits] = useState<{ whenToUse: string; whenNotToUse: string; fallbackText: string; examplePropsJson: string } | null>(null);
+  const [savedEdits, setSavedEdits] = useState<{ whenToUse: string; whenNotToUse: string; fallbackText: string; examplePropsJson: string } | null>(null);
   const [cardSaving, setCardSaving] = useState(false);
 
   const displayDef = viewingVersion?.definition ?? selected;
   const cardDirty = edits !== null && savedEdits !== null && (
     edits.whenToUse !== savedEdits.whenToUse ||
     edits.whenNotToUse !== savedEdits.whenNotToUse ||
-    edits.fallbackText !== savedEdits.fallbackText
+    edits.fallbackText !== savedEdits.fallbackText ||
+    edits.examplePropsJson !== savedEdits.examplePropsJson
   );
 
   async function loadHistory(cardType: string) {
@@ -683,7 +686,12 @@ function CardsTab() {
   }
 
   function initEdits(def: CardDefinition) {
-    const e = { whenToUse: def.whenToUse, whenNotToUse: def.whenNotToUse, fallbackText: def.fallbackText };
+    const e = {
+      whenToUse: def.whenToUse,
+      whenNotToUse: def.whenNotToUse,
+      fallbackText: def.fallbackText,
+      examplePropsJson: JSON.stringify(def.exampleProps, null, 2),
+    };
     setEdits(e);
     setSavedEdits(e);
   }
@@ -697,9 +705,21 @@ function CardsTab() {
 
   async function handleCardSave() {
     if (!selected || !edits) return;
+    let parsedExampleProps: Record<string, unknown>;
+    try {
+      parsedExampleProps = JSON.parse(edits.examplePropsJson) as Record<string, unknown>;
+    } catch {
+      setSeedResult("Error: Example Props is not valid JSON");
+      return;
+    }
     setCardSaving(true);
     try {
-      const r = await updateCard(selected.cardType, edits);
+      const r = await updateCard(selected.cardType, {
+        whenToUse: edits.whenToUse,
+        whenNotToUse: edits.whenNotToUse,
+        fallbackText: edits.fallbackText,
+        exampleProps: parsedExampleProps,
+      });
       setSelected(r.definition);
       setSavedEdits({ ...edits });
       setSeedResult(`Saved — v${r.version} recorded.`);
@@ -812,6 +832,24 @@ function CardsTab() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 14, fontSize: 12 }}>
 
+            {/* Live card preview */}
+            {(() => {
+              const Component = CARD_REGISTRY[displayDef.cardType];
+              if (!Component) return null;
+              let previewProps = displayDef.exampleProps;
+              if (!viewingVersion && edits) {
+                try { previewProps = JSON.parse(edits.examplePropsJson) as Record<string, unknown>; } catch { /* keep last valid */ }
+              }
+              return (
+                <div>
+                  <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 8 }}>Preview</div>
+                  <div className="card-player-frame" style={{ marginBottom: 2 }}>
+                    <Component {...(previewProps as Record<string, unknown>)} />
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Snapshot banner — shown when browsing a historical version */}
             {viewingVersion && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "var(--bg3)", border: "1px solid var(--b2)", borderRadius: 6 }}>
@@ -899,7 +937,17 @@ function CardsTab() {
             </div>
             <div>
               <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>Example Props</div>
-              <pre className="admin-qa-pre" style={{ fontSize: 10 }}>{JSON.stringify(displayDef.exampleProps, null, 2)}</pre>
+              {viewingVersion ? (
+                <pre className="admin-qa-pre" style={{ fontSize: 10 }}>{JSON.stringify(displayDef.exampleProps, null, 2)}</pre>
+              ) : (
+                <CodeMirror
+                  value={edits?.examplePropsJson ?? "{}"}
+                  onChange={(v) => setEdits((prev) => prev ? { ...prev, examplePropsJson: v } : null)}
+                  extensions={[jsonLang()]}
+                  theme={oneDark}
+                  style={{ fontSize: 11, borderRadius: 4, overflow: "hidden" }}
+                />
+              )}
             </div>
 
             {/* Version history — only shown when viewing current definition */}

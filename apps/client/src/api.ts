@@ -284,7 +284,7 @@ export function rollbackCard(
 
 export function updateCard(
   cardType: string,
-  patch: Partial<Pick<CardDefinition, "whenToUse" | "whenNotToUse" | "fallbackText" | "allowedActions">>,
+  patch: Partial<Pick<CardDefinition, "whenToUse" | "whenNotToUse" | "fallbackText" | "allowedActions" | "exampleProps">>,
 ): Promise<{ ok: boolean; cardType: string; version: string; definition: CardDefinition }> {
   return put(`/cards/${encodeURIComponent(cardType)}`, patch);
 }
