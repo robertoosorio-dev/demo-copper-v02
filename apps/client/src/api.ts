@@ -282,6 +282,13 @@ export function rollbackCard(
   return post(`/cards/${encodeURIComponent(cardType)}/rollback/${encodeURIComponent(v)}`, {});
 }
 
+export function updateCard(
+  cardType: string,
+  patch: Partial<Pick<CardDefinition, "whenToUse" | "whenNotToUse" | "fallbackText" | "allowedActions">>,
+): Promise<{ ok: boolean; cardType: string; version: string; definition: CardDefinition }> {
+  return put(`/cards/${encodeURIComponent(cardType)}`, patch);
+}
+
 export function adminQAPropose(
   prompt: string,
   expected: string,

@@ -142,6 +142,29 @@ export function makeCardsRouter(): Router {
     }
   });
 
+  // PUT /api/cards/:cardType — update editable fields, record a new version
+  router.put("/:cardType", async (req, res) => {
+    try {
+      const s = makeStorage();
+      const { cardType } = req.params;
+      const patch = req.body as Partial<Pick<CardDefinition, "whenToUse" | "whenNotToUse" | "fallbackText" | "allowedActions">>;
+      const existingRaw = await s.read(`${UXCARDS_PREFIX}${cardType}.json`);
+      const existing = JSON.parse(existingRaw) as CardDefinition;
+      const updated: CardDefinition = {
+        ...existing,
+        ...(patch.whenToUse    !== undefined ? { whenToUse:    patch.whenToUse    } : {}),
+        ...(patch.whenNotToUse !== undefined ? { whenNotToUse: patch.whenNotToUse } : {}),
+        ...(patch.fallbackText !== undefined ? { fallbackText: patch.fallbackText } : {}),
+        ...(patch.allowedActions !== undefined ? { allowedActions: patch.allowedActions } : {}),
+      };
+      await s.write(`${UXCARDS_PREFIX}${cardType}.json`, JSON.stringify(updated, null, 2));
+      const newV = await appendVersion(s, cardType, updated, "admin", "Edited via admin panel");
+      res.json({ ok: true, cardType, version: newV, definition: updated });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
   // GET /api/cards/:cardType/history
   router.get("/:cardType/history", async (req, res) => {
     try {

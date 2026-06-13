@@ -6,7 +6,7 @@ import {
   adminList, adminReadFile, adminWriteFile,
   adminKBVersions, adminKBCut, adminKBVersionFiles, adminKBVersionFile, adminKBRollback,
   adminQARun, adminQAFetchKBFiles, adminQAPropose,
-  seedCards, getCardHistory, getCardVersion, rollbackCard,
+  seedCards, getCardHistory, getCardVersion, rollbackCard, updateCard,
   type KBVersionMeta, type QARunResult, type QAJudgeResult, type CardDefinition, type CardVersionEntry,
 } from "../api.js";
 
@@ -661,8 +661,16 @@ function CardsTab() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [viewingVersion, setViewingVersion] = useState<{ v: string; definition: CardDefinition } | null>(null);
   const [rollingBack, setRollingBack] = useState<string | null>(null);
+  const [edits, setEdits] = useState<{ whenToUse: string; whenNotToUse: string; fallbackText: string } | null>(null);
+  const [savedEdits, setSavedEdits] = useState<{ whenToUse: string; whenNotToUse: string; fallbackText: string } | null>(null);
+  const [cardSaving, setCardSaving] = useState(false);
 
   const displayDef = viewingVersion?.definition ?? selected;
+  const cardDirty = edits !== null && savedEdits !== null && (
+    edits.whenToUse !== savedEdits.whenToUse ||
+    edits.whenNotToUse !== savedEdits.whenNotToUse ||
+    edits.fallbackText !== savedEdits.fallbackText
+  );
 
   async function loadHistory(cardType: string) {
     setHistoryLoading(true);
@@ -674,10 +682,34 @@ function CardsTab() {
     finally { setHistoryLoading(false); }
   }
 
+  function initEdits(def: CardDefinition) {
+    const e = { whenToUse: def.whenToUse, whenNotToUse: def.whenNotToUse, fallbackText: def.fallbackText };
+    setEdits(e);
+    setSavedEdits(e);
+  }
+
   async function selectCard(def: CardDefinition) {
     setSelected(def);
     setViewingVersion(null);
+    initEdits(def);
     await loadHistory(def.cardType);
+  }
+
+  async function handleCardSave() {
+    if (!selected || !edits) return;
+    setCardSaving(true);
+    try {
+      const r = await updateCard(selected.cardType, edits);
+      setSelected(r.definition);
+      setSavedEdits({ ...edits });
+      setSeedResult(`Saved — v${r.version} recorded.`);
+      setTimeout(() => setSeedResult(null), 3000);
+      await loadHistory(selected.cardType);
+    } catch (err) {
+      setSeedResult(`Error: ${(err as Error).message}`);
+    } finally {
+      setCardSaving(false);
+    }
   }
 
   async function refresh() {
@@ -689,7 +721,7 @@ function CardsTab() {
       setSource(src);
       const data = await res.json() as { definitions: CardDefinition[] };
       setDefs(data.definitions);
-      if (data.definitions.length > 0 && !selected) await selectCard(data.definitions[0]);
+      if (data.definitions.length > 0 && !selected) { await selectCard(data.definitions[0]); }
     } catch {
       setDefs([]);
     }
@@ -799,12 +831,23 @@ function CardsTab() {
             )}
 
             {/* Definition fields */}
-            <div>
-              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>cardType</div>
-              <code style={{ fontFamily: "var(--mono)", color: "var(--blue-txt)" }}>{displayDef.cardType}</code>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>Card Type</div>
+                <code style={{ fontFamily: "var(--mono)", color: "var(--blue-txt)" }}>{displayDef.cardType}</code>
+              </div>
+              {!viewingVersion && (
+                <button
+                  className="admin-save-btn"
+                  style={{ marginLeft: "auto" }}
+                  disabled={!cardDirty || cardSaving}
+                  onClick={() => void handleCardSave()}>
+                  {cardSaving ? "Saving…" : "Save"}
+                </button>
+              )}
             </div>
             <div>
-              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>allowedActions</div>
+              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>Allowed Actions</div>
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                 {displayDef.allowedActions.map((a) => (
                   <span key={a} style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "var(--bg3)", border: "1px solid var(--b2)", fontFamily: "var(--mono)" }}>{a}</span>
@@ -812,23 +855,50 @@ function CardsTab() {
               </div>
             </div>
             <div>
-              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>whenToUse</div>
-              <p style={{ color: "var(--txt2)", lineHeight: 1.6 }}>{displayDef.whenToUse}</p>
+              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>When To Use</div>
+              {viewingVersion ? (
+                <p style={{ color: "var(--txt2)", lineHeight: 1.6 }}>{displayDef.whenToUse}</p>
+              ) : (
+                <textarea
+                  className="admin-qa-textarea"
+                  rows={3}
+                  value={edits?.whenToUse ?? ""}
+                  onChange={(e) => setEdits((prev) => prev ? { ...prev, whenToUse: e.target.value } : null)}
+                />
+              )}
             </div>
             <div>
-              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>whenNotToUse</div>
-              <p style={{ color: "var(--txt2)", lineHeight: 1.6 }}>{displayDef.whenNotToUse}</p>
+              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>When Not To Use</div>
+              {viewingVersion ? (
+                <p style={{ color: "var(--txt2)", lineHeight: 1.6 }}>{displayDef.whenNotToUse}</p>
+              ) : (
+                <textarea
+                  className="admin-qa-textarea"
+                  rows={3}
+                  value={edits?.whenNotToUse ?? ""}
+                  onChange={(e) => setEdits((prev) => prev ? { ...prev, whenNotToUse: e.target.value } : null)}
+                />
+              )}
             </div>
             <div>
-              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>fallbackText</div>
-              <p style={{ color: "var(--txt3)", fontStyle: "italic", lineHeight: 1.6 }}>{displayDef.fallbackText}</p>
+              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>Fallback Text</div>
+              {viewingVersion ? (
+                <p style={{ color: "var(--txt3)", fontStyle: "italic", lineHeight: 1.6 }}>{displayDef.fallbackText}</p>
+              ) : (
+                <textarea
+                  className="admin-qa-textarea admin-qa-textarea--plain"
+                  rows={2}
+                  value={edits?.fallbackText ?? ""}
+                  onChange={(e) => setEdits((prev) => prev ? { ...prev, fallbackText: e.target.value } : null)}
+                />
+              )}
             </div>
             <div>
-              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>propsSchema</div>
+              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>Props Schema</div>
               <pre className="admin-qa-pre" style={{ fontSize: 10 }}>{JSON.stringify(displayDef.propsSchema, null, 2)}</pre>
             </div>
             <div>
-              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>exampleProps</div>
+              <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>Example Props</div>
               <pre className="admin-qa-pre" style={{ fontSize: 10 }}>{JSON.stringify(displayDef.exampleProps, null, 2)}</pre>
             </div>
 
