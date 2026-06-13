@@ -289,6 +289,14 @@ export function updateCard(
   return put(`/cards/${encodeURIComponent(cardType)}`, patch);
 }
 
+export function getCardSource(cardType: string): Promise<{ cardType: string; source: string }> {
+  return get(`/admin/card-source/${encodeURIComponent(cardType)}`);
+}
+
+export function saveCardSource(cardType: string, source: string): Promise<{ ok: boolean; cardType: string }> {
+  return put(`/admin/card-source/${encodeURIComponent(cardType)}`, { source });
+}
+
 export function adminQAPropose(
   prompt: string,
   expected: string,
