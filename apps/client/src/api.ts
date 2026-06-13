@@ -249,12 +249,37 @@ export interface CardDefinition {
   whenNotToUse: string;
 }
 
+export interface CardVersionEntry {
+  v: string;
+  at: string;
+  by: "seed" | "admin";
+  note?: string;
+}
+
 export function loadCardDefinitions(): Promise<{ definitions: CardDefinition[] }> {
   return get("/cards/definitions");
 }
 
 export function seedCards(): Promise<{ ok: boolean; written: string[] }> {
   return post("/cards/seed", {});
+}
+
+export function getCardHistory(cardType: string): Promise<{ cardType: string; history: CardVersionEntry[] }> {
+  return get(`/cards/${encodeURIComponent(cardType)}/history`);
+}
+
+export function getCardVersion(
+  cardType: string,
+  v: string,
+): Promise<{ cardType: string; v: string; definition: CardDefinition }> {
+  return get(`/cards/${encodeURIComponent(cardType)}/versions/${encodeURIComponent(v)}`);
+}
+
+export function rollbackCard(
+  cardType: string,
+  v: string,
+): Promise<{ ok: boolean; cardType: string; rolledBackTo: string; newVersion: string }> {
+  return post(`/cards/${encodeURIComponent(cardType)}/rollback/${encodeURIComponent(v)}`, {});
 }
 
 export function adminQAPropose(

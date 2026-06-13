@@ -6,8 +6,8 @@ import {
   adminList, adminReadFile, adminWriteFile,
   adminKBVersions, adminKBCut, adminKBVersionFiles, adminKBVersionFile, adminKBRollback,
   adminQARun, adminQAFetchKBFiles, adminQAPropose,
-  loadCardDefinitions, seedCards,
-  type KBVersionMeta, type QARunResult, type QAJudgeResult, type CardDefinition,
+  seedCards, getCardHistory, getCardVersion, rollbackCard,
+  type KBVersionMeta, type QARunResult, type QAJudgeResult, type CardDefinition, type CardVersionEntry,
 } from "../api.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -657,6 +657,28 @@ function CardsTab() {
   const [seeding, setSeeding] = useState(false);
   const [seedResult, setSeedResult] = useState<string | null>(null);
   const [selected, setSelected] = useState<CardDefinition | null>(null);
+  const [history, setHistory] = useState<CardVersionEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [viewingVersion, setViewingVersion] = useState<{ v: string; definition: CardDefinition } | null>(null);
+  const [rollingBack, setRollingBack] = useState<string | null>(null);
+
+  const displayDef = viewingVersion?.definition ?? selected;
+
+  async function loadHistory(cardType: string) {
+    setHistoryLoading(true);
+    setHistory([]);
+    try {
+      const r = await getCardHistory(cardType);
+      setHistory(r.history);
+    } catch { /* GCS unavailable */ }
+    finally { setHistoryLoading(false); }
+  }
+
+  async function selectCard(def: CardDefinition) {
+    setSelected(def);
+    setViewingVersion(null);
+    await loadHistory(def.cardType);
+  }
 
   async function refresh() {
     setSeedResult(null);
@@ -667,13 +689,13 @@ function CardsTab() {
       setSource(src);
       const data = await res.json() as { definitions: CardDefinition[] };
       setDefs(data.definitions);
-      if (data.definitions.length > 0 && !selected) setSelected(data.definitions[0]);
-    } catch (err) {
+      if (data.definitions.length > 0 && !selected) await selectCard(data.definitions[0]);
+    } catch {
       setDefs([]);
     }
   }
 
-  useEffect(() => { refresh(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void refresh(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSeed() {
     setSeeding(true);
@@ -682,12 +704,41 @@ function CardsTab() {
       const r = await seedCards();
       setSeedResult(`Seeded ${r.written.length} files to GCS.`);
       await refresh();
+      if (selected) await loadHistory(selected.cardType);
     } catch (err) {
       setSeedResult(`Error: ${(err as Error).message}`);
     } finally {
       setSeeding(false);
     }
   }
+
+  async function handleViewVersion(v: string) {
+    if (!selected) return;
+    try {
+      const r = await getCardVersion(selected.cardType, v);
+      setViewingVersion({ v: r.v, definition: r.definition });
+    } catch { /* ignore */ }
+  }
+
+  async function handleRollback(v: string) {
+    if (!selected) return;
+    if (!confirm(`Roll back ${selected.cardType} to v${v}?\nThis creates a new version entry with v${v}'s content.`)) return;
+    setRollingBack(v);
+    try {
+      const r = await rollbackCard(selected.cardType, v);
+      setSeedResult(`Rolled back to v${v} — recorded as v${r.newVersion}.`);
+      setViewingVersion(null);
+      await loadHistory(selected.cardType);
+    } catch (err) {
+      setSeedResult(`Error: ${(err as Error).message}`);
+    } finally {
+      setRollingBack(null);
+    }
+  }
+
+  // History shown newest-first
+  const historyDesc = [...history].reverse();
+  const latestV = historyDesc[0]?.v;
 
   return (
     <div className="admin-layout">
@@ -697,10 +748,7 @@ function CardsTab() {
             <span style={{ fontSize: 11, color: "var(--txt3)" }}>
               Source: <strong style={{ color: source === "gcs" ? "var(--green-txt)" : "var(--amber-txt)" }}>{source}</strong>
             </span>
-            <button
-              className="admin-qa-btn admin-qa-btn--ghost"
-              style={{ marginLeft: "auto", fontSize: 10 }}
-              onClick={refresh}>↺</button>
+            <button className="admin-qa-btn admin-qa-btn--ghost" style={{ marginLeft: "auto", fontSize: 10 }} onClick={() => void refresh()}>↺</button>
           </div>
           <button
             className={`admin-qa-btn ${source === "gcs" ? "admin-qa-btn--ghost" : "admin-qa-btn--primary"}`}
@@ -719,7 +767,7 @@ function CardsTab() {
         {defs !== null && defs.map((d) => (
           <div key={d.cardType}
             className={`admin-tree-row admin-tree-row--file${selected?.cardType === d.cardType ? " sel" : ""}`}
-            onClick={() => setSelected(d)}>
+            onClick={() => void selectCard(d)}>
             <span className="admin-tree-icon">·</span>
             <span className="admin-tree-label" style={{ fontFamily: "var(--mono)", fontSize: 11 }}>{d.cardType}</span>
           </div>
@@ -727,42 +775,106 @@ function CardsTab() {
       </div>
 
       <div className="admin-viewer" style={{ padding: 16, overflowY: "auto" }}>
-        {!selected ? (
+        {!displayDef ? (
           <div className="admin-empty">Select a card definition</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 14, fontSize: 12 }}>
+
+            {/* Snapshot banner — shown when browsing a historical version */}
+            {viewingVersion && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "var(--bg3)", border: "1px solid var(--b2)", borderRadius: 6 }}>
+                <span style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 700, color: "var(--blue-txt)" }}>v{viewingVersion.v}</span>
+                <span style={{ fontSize: 11, color: "var(--txt3)" }}>snapshot — read only</span>
+                <button className="admin-qa-btn admin-qa-btn--ghost" style={{ marginLeft: "auto", fontSize: 10 }} onClick={() => setViewingVersion(null)}>
+                  ↑ Back to current
+                </button>
+                <button
+                  className="admin-qa-btn admin-qa-btn--ghost"
+                  style={{ fontSize: 10 }}
+                  disabled={rollingBack !== null}
+                  onClick={() => void handleRollback(viewingVersion.v)}>
+                  {rollingBack === viewingVersion.v ? "Rolling back…" : "↩ Rollback"}
+                </button>
+              </div>
+            )}
+
+            {/* Definition fields */}
             <div>
               <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>cardType</div>
-              <code style={{ fontFamily: "var(--mono)", color: "var(--blue-txt)" }}>{selected.cardType}</code>
+              <code style={{ fontFamily: "var(--mono)", color: "var(--blue-txt)" }}>{displayDef.cardType}</code>
             </div>
             <div>
               <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>allowedActions</div>
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                {selected.allowedActions.map((a) => (
+                {displayDef.allowedActions.map((a) => (
                   <span key={a} style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "var(--bg3)", border: "1px solid var(--b2)", fontFamily: "var(--mono)" }}>{a}</span>
                 ))}
               </div>
             </div>
             <div>
               <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>whenToUse</div>
-              <p style={{ color: "var(--txt2)", lineHeight: 1.6 }}>{selected.whenToUse}</p>
+              <p style={{ color: "var(--txt2)", lineHeight: 1.6 }}>{displayDef.whenToUse}</p>
             </div>
             <div>
               <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>whenNotToUse</div>
-              <p style={{ color: "var(--txt2)", lineHeight: 1.6 }}>{selected.whenNotToUse}</p>
+              <p style={{ color: "var(--txt2)", lineHeight: 1.6 }}>{displayDef.whenNotToUse}</p>
             </div>
             <div>
               <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>fallbackText</div>
-              <p style={{ color: "var(--txt3)", fontStyle: "italic", lineHeight: 1.6 }}>{selected.fallbackText}</p>
+              <p style={{ color: "var(--txt3)", fontStyle: "italic", lineHeight: 1.6 }}>{displayDef.fallbackText}</p>
             </div>
             <div>
               <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>propsSchema</div>
-              <pre className="admin-qa-pre" style={{ fontSize: 10 }}>{JSON.stringify(selected.propsSchema, null, 2)}</pre>
+              <pre className="admin-qa-pre" style={{ fontSize: 10 }}>{JSON.stringify(displayDef.propsSchema, null, 2)}</pre>
             </div>
             <div>
               <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 3 }}>exampleProps</div>
-              <pre className="admin-qa-pre" style={{ fontSize: 10 }}>{JSON.stringify(selected.exampleProps, null, 2)}</pre>
+              <pre className="admin-qa-pre" style={{ fontSize: 10 }}>{JSON.stringify(displayDef.exampleProps, null, 2)}</pre>
             </div>
+
+            {/* Version history — only shown when viewing current definition */}
+            {!viewingVersion && (
+              <div style={{ borderTop: "1px solid var(--b)", paddingTop: 14 }}>
+                <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".08em", color: "var(--txt3)", fontWeight: 700, marginBottom: 10 }}>
+                  Version History
+                </div>
+                {historyLoading && <div style={{ fontSize: 11, color: "var(--txt3)" }}>Loading…</div>}
+                {!historyLoading && historyDesc.length === 0 && (
+                  <div style={{ fontSize: 11, color: "var(--txt3)", fontStyle: "italic" }}>
+                    No versions yet — use Re-seed to GCS to record v0001.
+                  </div>
+                )}
+                {!historyLoading && historyDesc.map((entry) => (
+                  <div key={entry.v} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--b)", flexWrap: "wrap" }}>
+                    <span style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 700, color: entry.v === latestV ? "var(--green-txt)" : "var(--txt2)", minWidth: 36 }}>
+                      v{entry.v}
+                    </span>
+                    <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: "var(--bg3)", border: "1px solid var(--b2)", color: "var(--txt3)", fontFamily: "var(--mono)" }}>
+                      {entry.by}
+                    </span>
+                    <span style={{ fontSize: 10, color: "var(--txt3)" }}>
+                      {new Date(entry.at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                    {entry.note && (
+                      <span style={{ fontSize: 10, color: "var(--txt3)", fontStyle: "italic", flex: 1 }}>{entry.note}</span>
+                    )}
+                    <div style={{ display: "flex", gap: 5, marginLeft: "auto" }}>
+                      <button className="admin-qa-btn admin-qa-btn--ghost" style={{ fontSize: 10, padding: "2px 8px" }} onClick={() => void handleViewVersion(entry.v)}>
+                        View
+                      </button>
+                      <button
+                        className="admin-qa-btn admin-qa-btn--ghost"
+                        style={{ fontSize: 10, padding: "2px 8px" }}
+                        disabled={rollingBack !== null}
+                        onClick={() => void handleRollback(entry.v)}>
+                        {rollingBack === entry.v ? "…" : "↩"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
           </div>
         )}
       </div>
