@@ -229,6 +229,10 @@ function MainApp() {
           <span className="brand-v">v2</span>
         </Link>
         <span className="build-version">{APP_VERSION}</span>
+        <button className="icon-btn icon-btn--demo-wiz" onClick={() => openWizard(getWizardShape())} title="Demo wizard (stand-in)">
+          <IconWand size={14} />
+          Demo Wizard
+        </button>
         <div className="sep" />
 
         {version ? (
@@ -249,11 +253,7 @@ function MainApp() {
             <IconHistory size={14} />
             Versions
           </Link>
-          <button className="icon-btn" onClick={() => openWizard(getWizardShape())} title="Open wizard (test stand-in)">
-            <IconWand size={14} />
-            Wizard
-          </button>
-          <Link to={isQA ? "/" : "/qa"} className={`icon-btn${isQA ? " active" : ""}`} title={isQA ? "Back to main view" : "Transaction / QA Viewer"}>
+<Link to={isQA ? "/" : "/qa"} className={`icon-btn${isQA ? " active" : ""}`} title={isQA ? "Back to main view" : "Transaction / QA Viewer"}>
             <IconBug size={14} />
             Reasoning
           </Link>

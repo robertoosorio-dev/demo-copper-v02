@@ -719,6 +719,13 @@
   margin-left: 2px;
 }
 
+/* Demo wizard button — temporary, lives near the brand until engine is wired */
+.icon-btn--demo-wiz {
+  opacity: 0.6;
+  font-style: italic;
+}
+.icon-btn--demo-wiz:hover { opacity: 1; }
+
 /* ── VERSION HISTORY PANEL ── */
 .history-shell {
   display: flex;
