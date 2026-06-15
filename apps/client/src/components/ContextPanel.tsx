@@ -1,39 +1,187 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useStore } from "../store.js";
+import type { ActivePlan } from "../store.js";
 import ProposalCard from "./ProposalCard.js";
 import { CardPlayer } from "./cards/CardPlayer.js";
 import { chat } from "../api.js";
-import { classifyFile, parseContextFile, parkRawFile, buildWizardShapeFromFile } from "../lib/parseContextFile.js";
-import { IconMessage, IconArrowUp, IconCloudUpload } from "@tabler/icons-react";
+import { classifyFile } from "../lib/parseContextFile.js";
+import { useDocumentHandlers } from "../hooks/useDocumentHandlers.js";
+import { IconMessage, IconArrowUp, IconCloudUpload, IconPlus, IconX } from "@tabler/icons-react";
 import type { Exchange } from "@copper/contracts";
 
+const LLM_MODELS = [
+  { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+  { id: "claude-opus-4-8",   label: "Claude Opus 4.8"   },
+  { id: "gpt-5.5",           label: "GPT-5.5"           },
+  { id: "gemini-2.5-pro",    label: "Gemini 2.5 Pro"    },
+];
+
+const PLAN_LABELS: Record<ActivePlan, string> = {
+  data: "Data", media: "Media", creative: "Creative",
+};
+
+// ── Menu items (data-driven, context-filtered) ────────────────────────────────
+
+interface MenuItemDef {
+  id: string;
+  getLabel: (plan: ActivePlan) => string;
+  visible: (plan: ActivePlan) => boolean;
+  accept: string;
+  multiple: boolean;
+  route: "wizard" | "library" | "plan";
+}
+
+const MENU_ITEM_DEFS: MenuItemDef[] = [
+  {
+    id: "add-table",
+    getLabel: () => "Add Table to Data-Model",
+    visible: (p) => p === "data",
+    accept: ".csv,.json,.xlsx,.xls",
+    multiple: false,
+    route: "wizard",
+  },
+  {
+    id: "upload-plan",
+    getLabel: (p) => `Upload a ${PLAN_LABELS[p]} Plan`,
+    visible: () => true,
+    accept: "*",
+    multiple: false,
+    route: "plan",
+  },
+  {
+    id: "add-library",
+    getLabel: () => "Add File(s) to Library",
+    visible: () => true,
+    accept: "*",
+    multiple: true,
+    route: "library",
+  },
+];
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+interface Attachment {
+  id: string;
+  name: string;
+}
+
+interface DisambigState {
+  file: File;
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export default function ContextPanel() {
-  const version         = useStore((s) => s.version);
-  const exchanges       = useStore((s) => s.version?.context.exchanges)    ?? [];
-  const contextFiles    = useStore((s) => s.version?.context.contextFiles) ?? [];
-  const activePlan      = useStore((s) => s.activePlan);
-  const isLoading       = useStore((s) => s.isLoading);
-  const llmModel        = useStore((s) => s.llmModel);
+  const version            = useStore((s) => s.version);
+  const exchanges          = useStore((s) => s.version?.context.exchanges) ?? [];
+  const contextFiles       = useStore((s) => s.version?.context.contextFiles) ?? [];
+  const activePlan         = useStore((s) => s.activePlan);
+  const isLoading          = useStore((s) => s.isLoading);
+  const llmModel           = useStore((s) => s.llmModel);
+  const setLlmModel        = useStore((s) => s.setLlmModel);
   const appendExchanges    = useStore((s) => s.appendExchanges);
   const mergeServerVersion = useStore((s) => s.mergeServerVersion);
   const setLoading         = useStore((s) => s.setLoading);
   const openWizard         = useStore((s) => s.openWizard);
 
-  const [input, setInput] = useState("");
-  const [thinking, setThinking] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const { launchWizard } = useDocumentHandlers();
 
+  const [input, setInput]             = useState("");
+  const [thinking, setThinking]       = useState(false);
+  const [dragOver, setDragOver]       = useState(false);
+  const [plusOpen, setPlusOpen]       = useState(false);
+  const [disambig, setDisambig]       = useState<DisambigState | null>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+
+  const textareaRef        = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef       = useRef<HTMLInputElement>(null);
+  const pendingFileHandler = useRef<((files: File[]) => void) | null>(null);
+  const composerRef        = useRef<HTMLDivElement>(null);
+  const bottomRef          = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [exchanges.length, thinking]);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  // Auto-grow textarea
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [input]);
+
+  // Close [+] menu on outside click
+  useEffect(() => {
+    if (!plusOpen) return;
+    const h = (e: MouseEvent) => {
+      if (composerRef.current && !composerRef.current.contains(e.target as Node)) {
+        setPlusOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [plusOpen]);
+
+  // ── Shared destination handlers ───────────────────────────────────────────
+
+  function parkToLibrary(files: File[]) {
+    setAttachments((prev) => [
+      ...prev,
+      ...files.map((f) => ({ id: `att_${Date.now()}_${f.name}`, name: f.name })),
+    ]);
+    // TODO(human): Library surface not yet designed — stub handoff
+  }
+
+  // ── File picker (for [+] menu) ────────────────────────────────────────────
+
+  function pickFile(accept: string, multiple: boolean, handler: (files: File[]) => void) {
+    const el = fileInputRef.current;
+    if (!el) return;
+    el.accept = accept;
+    el.multiple = multiple;
+    el.value = "";
+    pendingFileHandler.current = handler;
+    el.click();
+  }
+
+  function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length > 0 && pendingFileHandler.current) {
+      pendingFileHandler.current(files);
+    }
+    pendingFileHandler.current = null;
+  }
+
+  // ── [+] Menu activation ───────────────────────────────────────────────────
+
+  function activateMenuItem(def: MenuItemDef) {
+    setPlusOpen(false);
+    pickFile(def.accept, def.multiple, (files) => {
+      if (def.route === "wizard") {
+        if (files[0]) void launchWizard(files[0]);
+      } else {
+        // library and plan both park to Library (plan stub = same destination)
+        parkToLibrary(files);
+      }
+    });
+  }
+
+  const visibleItems = MENU_ITEM_DEFS.filter((d) => d.visible(activePlan));
+
+  // ── Chat submit ───────────────────────────────────────────────────────────
+
+  async function doSubmit() {
     const text = input.trim();
-    if (!text || isLoading || thinking || !version) return;
+    if ((!text && attachments.length === 0) || isLoading || thinking || !version) return;
 
     setInput("");
+    setAttachments([]); // TODO(human): hand off to Library on send
+
+    // Attachments only — nothing to send to the LLM, Library stub absorbed them
+    if (!text) return;
+
     const ts = new Date().toISOString();
     const userExchange: Exchange = {
       id: `ex_u_${Date.now()}`,
@@ -65,38 +213,29 @@ export default function ContextPanel() {
     }
   }
 
-  async function handleFiles(files: File[]) {
-    for (const f of files) {
-      const cls = classifyFile(f.name);
-      try {
-        if (cls === "file") {
-          // park as context only — no wizard
-          const _ = parkRawFile(f); void _;
-        } else {
-          const parsed = await parseContextFile(f);
-          openWizard(buildWizardShapeFromFile(parsed));
-          break; // one wizard at a time
-        }
-      } catch (err) {
-        console.error("[ContextPanel drop]", err);
-      }
-    }
-  }
+  // ── Drop handlers (Route A — type-based) ─────────────────────────────────
 
-  function handleDragEnter(e: React.DragEvent) {
-    e.preventDefault();
-    setDragOver(true);
-  }
+  function handleDragEnter(e: React.DragEvent) { e.preventDefault(); setDragOver(true); }
   function handleDragLeave(e: React.DragEvent) {
     if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget as Node)) return;
     setDragOver(false);
   }
   function handleDragOver(e: React.DragEvent) { e.preventDefault(); }
-  async function handleDrop(e: React.DragEvent) {
+  function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragOver(false);
-    await handleFiles(Array.from(e.dataTransfer.files));
+    const files = Array.from(e.dataTransfer.files);
+    for (const f of files) {
+      const cls = classifyFile(f.name);
+      if (cls === "table" || cls === "spreadsheet") {
+        setDisambig({ file: f }); // ambiguous on context — ask
+        return;
+      }
+      parkToLibrary([f]);
+    }
   }
+
+  const canSubmit = (!!input.trim() || attachments.length > 0) && !isLoading && !thinking && !!version;
 
   return (
     <div
@@ -106,22 +245,54 @@ export default function ContextPanel() {
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
+      {/* Drop overlay */}
       {dragOver && (
         <div className="drop-overlay">
           <IconCloudUpload size={28} />
           <span className="drop-overlay-label">Drop File</span>
-          <span className="drop-overlay-sub">tables → wizard · docs → context</span>
+          <span className="drop-overlay-sub">tables → wizard · docs → library</span>
         </div>
       )}
 
+      {/* Disambiguation overlay (tabular file on context panel) */}
+      {disambig && (
+        <div className="cp-disambig-overlay">
+          <div className="cp-disambig-box">
+            <div className="cp-disambig-filename">{disambig.file.name}</div>
+            <div className="cp-disambig-question">How should this file be used?</div>
+            <div className="cp-disambig-btns">
+              <button
+                className="cp-disambig-btn cp-disambig-btn--primary"
+                onClick={() => { void launchWizard(disambig.file); setDisambig(null); }}
+              >
+                Add as table → wizard
+              </button>
+              <button
+                className="cp-disambig-btn"
+                onClick={() => { parkToLibrary([disambig.file]); setDisambig(null); }}
+              >
+                Add to Library
+              </button>
+            </div>
+            <button className="cp-disambig-cancel" onClick={() => setDisambig(null)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
       <div className="cp-header">
         <IconMessage size={13} />
         <span>Context</span>
         {contextFiles.length > 0 && (
-          <span className="cp-file-count">{contextFiles.length} file{contextFiles.length !== 1 ? "s" : ""}</span>
+          <span className="cp-file-count">
+            {contextFiles.length} file{contextFiles.length !== 1 ? "s" : ""}
+          </span>
         )}
       </div>
 
+      {/* Persistent context files */}
       {contextFiles.length > 0 && (
         <div className="cp-files">
           {contextFiles.map((f) => (
@@ -130,6 +301,7 @@ export default function ContextPanel() {
         </div>
       )}
 
+      {/* Exchange thread */}
       <div className="cp-exchanges">
         {exchanges.length === 0 && (
           <div className="cp-empty">
@@ -150,36 +322,103 @@ export default function ContextPanel() {
         <div ref={bottomRef} />
       </div>
 
-      <form className="cp-input-row" onSubmit={handleSubmit}>
-        <textarea
-          className="cp-textarea"
-          rows={2}
-          placeholder={`Message ${activePlan === "data" ? "data" : "media"} plan… (M3)`}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSubmit(e);
-            }
-          }}
-          disabled={isLoading || thinking || !version}
+      {/* Composer */}
+      <div className="cp-composer-wrap">
+        <div className="cp-composer" ref={composerRef}>
+          {/* [+] floating menu */}
+          {plusOpen && (
+            <div className="cp-plus-menu">
+              {visibleItems.map((def) => (
+                <button
+                  key={def.id}
+                  className="cp-plus-menu-item"
+                  onClick={() => activateMenuItem(def)}
+                >
+                  {def.getLabel(activePlan)}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Pending attachments (transient Library parking) */}
+          {attachments.length > 0 && (
+            <div className="cp-attachments">
+              {attachments.map((a) => (
+                <div key={a.id} className="cp-attach-chip">
+                  <span className="cp-attach-name">{a.name}</span>
+                  <button
+                    className="cp-attach-remove"
+                    onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))}
+                  >
+                    <IconX size={10} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Growing textarea */}
+          <textarea
+            ref={textareaRef}
+            className="cp-textarea-grow"
+            placeholder={`Message ${PLAN_LABELS[activePlan]} plan…`}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void doSubmit();
+              }
+            }}
+            disabled={isLoading || thinking || !version}
+            rows={1}
+          />
+
+          {/* Bottom toolbar: [+], model selector, send */}
+          <div className="cp-composer-toolbar">
+            <button
+              className="cp-plus-btn"
+              type="button"
+              title="Add file or table"
+              onClick={() => setPlusOpen((v) => !v)}
+            >
+              <IconPlus size={13} />
+            </button>
+            <select
+              className="sel cp-model-sel"
+              value={llmModel}
+              onChange={(e) => setLlmModel(e.target.value)}
+            >
+              {LLM_MODELS.map((m) => (
+                <option key={m.id} value={m.id}>{m.label}</option>
+              ))}
+            </select>
+            <button
+              className="cp-send-btn-new"
+              type="button"
+              title="Send"
+              disabled={!canSubmit}
+              onClick={() => void doSubmit()}
+            >
+              <IconArrowUp size={14} />
+            </button>
+          </div>
+        </div>
+
+        {/* Hidden file input (shared by all [+] menu items) */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          style={{ display: "none" }}
+          onChange={handleFileInputChange}
         />
-        <button
-          className="cp-send-btn"
-          type="submit"
-          disabled={isLoading || thinking || !input.trim() || !version}
-        >
-          <IconArrowUp size={14} />
-        </button>
-      </form>
+      </div>
     </div>
   );
 }
 
 function ExchangeBubble({ exchange }: { exchange: Exchange }) {
   const isUser = exchange.role === "user";
-
   return (
     <div className={`exchange exchange--${exchange.role}`}>
       {isUser ? (
@@ -188,9 +427,7 @@ function ExchangeBubble({ exchange }: { exchange: Exchange }) {
         <div className="ex-assistant-msg">
           <div className="ex-text">{exchange.text}</div>
           {exchange.card && <CardPlayer card={exchange.card} />}
-          {exchange.proposal && (
-            <ProposalCard proposal={exchange.proposal} />
-          )}
+          {exchange.proposal && <ProposalCard proposal={exchange.proposal} />}
           {exchange.llmModel && (
             <div className="ex-meta">{exchange.llmModel} · {exchange.responseTimeMs}ms</div>
           )}

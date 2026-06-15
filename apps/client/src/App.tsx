@@ -27,13 +27,6 @@ import {
   IconWand,
 } from "@tabler/icons-react";
 
-const LLM_MODELS = [
-  { id: "claude-sonnet-4-6",  label: "Claude Sonnet 4.6"  },
-  { id: "claude-opus-4-8",    label: "Claude Opus 4.8"    },
-  { id: "gpt-5.5",            label: "GPT-5.5"             },
-  { id: "gemini-2.5-pro",     label: "Gemini 2.5 Pro"     },
-];
-
 const PLANS = [
   { id: "data",     label: "Data Plan",     icon: IconDatabase,  stub: false },
   { id: "media",    label: "Media Plan",    icon: IconChartBar,  stub: false },
@@ -173,8 +166,6 @@ function MainApp() {
   const saveStatus        = useStore((s) => s.saveStatus);
   const activePlan        = useStore((s) => s.activePlan);
   const setActivePlan     = useStore((s) => s.setActivePlan);
-  const llmModel          = useStore((s) => s.llmModel);
-  const setLlmModel       = useStore((s) => s.setLlmModel);
   const setAvailableProjects = useStore((s) => s.setAvailableProjects);
   const loadVersionStore  = useStore((s) => s.loadVersion);
   const saveNow           = useStore((s) => s.saveNow);
@@ -268,12 +259,6 @@ function MainApp() {
             <IconSettings size={14} />
             Admin
           </Link>
-          <div className="sep" />
-          <select className="sel" value={llmModel} onChange={(e) => setLlmModel(e.target.value)}>
-            {LLM_MODELS.map((m) => (
-              <option key={m.id} value={m.id}>{m.label}</option>
-            ))}
-          </select>
         </div>
       </div>
 

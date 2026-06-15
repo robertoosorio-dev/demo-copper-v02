@@ -3,6 +3,8 @@ import { useStore } from "../store.js";
 import { CARD_REGISTRY } from "./cards/registry.js";
 import type { WizardStep, WizardShape } from "../wizardStandin.js";
 import type { ValidationFinding } from "./cards/ValidationFindingsCard.js";
+import { chat } from "../api.js";
+import type { Exchange } from "@copper/contracts";
 
 type Draft = Record<string, Record<string, unknown>>;
 
@@ -58,12 +60,47 @@ function buildCallbacks(
   }
 }
 
-function WizardPanel({ shape, onClose }: { shape: WizardShape; onClose: () => void }) {
+// Synthesize a natural-language message from what the user configured in the wizard
+function buildCommitMessage(shape: WizardShape, draft: Draft): string {
+  const { steps } = shape.wizard;
+
+  const discoveryStep = steps.find((s) => s.card?.cardType === "tableDiscovery");
+  const keyStep       = steps.find((s) => s.card?.cardType === "keySelection");
+
+  if (!discoveryStep) return `Add: ${shape.wizard.title}`;
+
+  const props     = mergedProps(discoveryStep, draft);
+  const tableName = (props.tableName as string | undefined) ?? "Unknown";
+  const rows      = props.rows as number | undefined;
+  const columns   = props.columns as number | undefined;
+
+  let msg = `Add a table called "${tableName}"`;
+  if (rows)    msg += ` with ${rows.toLocaleString()} rows`;
+  if (columns) msg += ` and ${columns} column${columns === 1 ? "" : "s"}`;
+
+  if (keyStep) {
+    const kp      = mergedProps(keyStep, draft);
+    const keyName = kp.keyName as string | undefined;
+    if (keyName) msg += `. Use "${keyName}" as the primary key`;
+  }
+
+  return msg + ".";
+}
+
+function WizardPanel({
+  shape,
+  onClose,
+  onCommit,
+}: {
+  shape: WizardShape;
+  onClose: () => void;
+  onCommit: (shape: WizardShape, draft: Draft) => Promise<void>;
+}) {
   const { title, steps, commit } = shape.wizard;
 
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [draft, setDraft] = useState<Draft>({});
-  const [committed, setCommitted] = useState(false);
+  const [draft, setDraft]           = useState<Draft>({});
+  const [committed, setCommitted]   = useState(false);
 
   useEffect(() => {
     if (!committed) return;
@@ -71,12 +108,17 @@ function WizardPanel({ shape, onClose }: { shape: WizardShape; onClose: () => vo
     return () => clearTimeout(t);
   }, [committed, onClose]);
 
-  const step    = steps[currentIdx];
-  const isFirst = currentIdx === 0;
-  const isLast  = currentIdx === steps.length - 1;
+  const step      = steps[currentIdx];
+  const isFirst   = currentIdx === 0;
+  const isLast    = currentIdx === steps.length - 1;
   const props     = step.card ? mergedProps(step, draft) : {};
   const callbacks = step.card ? buildCallbacks(step, draft, setDraft) : {};
   const Component = step.card ? CARD_REGISTRY[step.card.cardType] : undefined;
+
+  async function handleCommit() {
+    setCommitted(true);
+    await onCommit(shape, draft);
+  }
 
   return (
     <div className="wizard-modal-backdrop" onClick={onClose}>
@@ -148,7 +190,7 @@ function WizardPanel({ shape, onClose }: { shape: WizardShape; onClose: () => vo
                 </button>
                 <span className="wizard-step-counter">{currentIdx + 1} / {steps.length}</span>
                 {isLast ? (
-                  <button className="wizard-btn wizard-btn--primary" onClick={() => setCommitted(true)}>
+                  <button className="wizard-btn wizard-btn--primary" onClick={() => void handleCommit()}>
                     {commit.label}
                   </button>
                 ) : (
@@ -166,11 +208,43 @@ function WizardPanel({ shape, onClose }: { shape: WizardShape; onClose: () => vo
 }
 
 export function WizardSurface() {
-  const wizardShape = useStore((s) => s.wizardShape);
-  const closeWizard = useStore((s) => s.closeWizard);
+  const wizardShape        = useStore((s) => s.wizardShape);
+  const closeWizard        = useStore((s) => s.closeWizard);
+  const version            = useStore((s) => s.version);
+  const llmModel           = useStore((s) => s.llmModel);
+  const exchanges          = useStore((s) => s.version?.context.exchanges) ?? [];
+  const appendExchanges    = useStore((s) => s.appendExchanges);
+  const mergeServerVersion = useStore((s) => s.mergeServerVersion);
+  const setLoading         = useStore((s) => s.setLoading);
+  const openWizard         = useStore((s) => s.openWizard);
+
+  async function onCommit(shape: WizardShape, draft: Draft) {
+    if (!version) return;
+    const text = buildCommitMessage(shape, draft);
+    const ts   = new Date().toISOString();
+    const userEx: Exchange = {
+      id: `ex_u_${Date.now()}`,
+      role: "user",
+      text,
+      status: "success",
+      startedAt: ts,
+    };
+    appendExchanges([userEx]);
+    setLoading(true);
+    try {
+      const result = await chat(version.id!, text, llmModel, [...exchanges, userEx], version);
+      appendExchanges([result.exchange]);
+      if (result.version) mergeServerVersion(result.version);
+      if (result.wizard)  openWizard(result.wizard);
+    } catch (err) {
+      console.error("[wizard commit]", err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   if (!wizardShape) return null;
-  return <WizardPanel shape={wizardShape} onClose={closeWizard} />;
+  return <WizardPanel shape={wizardShape} onClose={closeWizard} onCommit={onCommit} />;
 }
 
 export default WizardSurface;

@@ -2,25 +2,22 @@ import React, { useState } from "react";
 import { useStore } from "../store.js";
 import GraphCanvas from "./GraphCanvas.js";
 import MediaGraph from "./mediaGraph/MediaGraph.js";
-import { classifyFile, parseContextFile, buildWizardShapeFromFile } from "../lib/parseContextFile.js";
+import { classifyFile } from "../lib/parseContextFile.js";
+import { useDocumentHandlers } from "../hooks/useDocumentHandlers.js";
 import { IconCloudUpload } from "@tabler/icons-react";
 
 export default function ProjectModel() {
   const activePlan = useStore((s) => s.activePlan);
-  const openWizard = useStore((s) => s.openWizard);
+  const { launchWizard } = useDocumentHandlers();
   const [dragOver, setDragOver] = useState(false);
 
+  // Route A — model surface: tabular files → launchWizard; others silently ignored
   async function handleFiles(files: File[]) {
     for (const f of files) {
       const cls = classifyFile(f.name);
-      if (cls === "file") continue; // model surface: tables only
-      try {
-        const parsed = await parseContextFile(f);
-        openWizard(buildWizardShapeFromFile(parsed));
-        break;
-      } catch (err) {
-        console.error("[ProjectModel drop]", err);
-      }
+      if (cls === "file") continue;
+      await launchWizard(f);
+      break; // one wizard at a time
     }
   }
 
