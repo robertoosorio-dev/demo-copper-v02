@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Version, DataPlanModel, MediaPlanModel, Exchange } from "@copper/contracts";
+import type { Version, DataPlanModel, MediaPlanModel, Exchange, LibraryFile } from "@copper/contracts";
 import { saveProject as apiSaveProject } from "./api.js";
 import type { WizardShape } from "./wizardStandin.js";
 
@@ -23,6 +23,8 @@ interface State {
   llmModel: string;
   isLoading: boolean;
   wizardShape: WizardShape | null;
+  libraryFiles: LibraryFile[];
+  libraryOpen: boolean;
 
   // ── Derived accessors (computed from version) ──────────────────────────────
   dataModel: () => DataPlanModel | null;
@@ -43,6 +45,9 @@ interface State {
   setLoading: (v: boolean) => void;
   openWizard: (shape: WizardShape) => void;
   closeWizard: () => void;
+  setLibraryFiles: (files: LibraryFile[]) => void;
+  setLibraryOpen: (open: boolean) => void;
+  addLibraryFile: (file: LibraryFile) => void;
 
   updateDataDocument: (doc: string) => void;
   updateMediaDocument: (doc: string) => void;
@@ -70,6 +75,8 @@ export const useStore = create<State>((set, get) => ({
   llmModel: "claude-sonnet-4-6",
   isLoading: false,
   wizardShape: null,
+  libraryFiles: [],
+  libraryOpen: false,
 
   // Derived — read from version each time (no redundant mirrors)
   dataModel: () => get().version?.plans.data.model ?? null,
@@ -104,6 +111,9 @@ export const useStore = create<State>((set, get) => ({
   setLoading: (isLoading) => set({ isLoading }),
   openWizard: (wizardShape) => set({ wizardShape }),
   closeWizard: () => set({ wizardShape: null }),
+  setLibraryFiles: (libraryFiles) => set({ libraryFiles }),
+  setLibraryOpen: (libraryOpen) => set({ libraryOpen }),
+  addLibraryFile: (file) => set((s) => ({ libraryFiles: [...s.libraryFiles, file] })),
 
   updateDataDocument: (doc) =>
     set((s) => {

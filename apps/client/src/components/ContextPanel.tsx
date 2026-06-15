@@ -3,11 +3,13 @@ import { useStore } from "../store.js";
 import type { ActivePlan } from "../store.js";
 import ProposalCard from "./ProposalCard.js";
 import { CardPlayer } from "./cards/CardPlayer.js";
-import { chat } from "../api.js";
+import { chat, getLibrary, putLibrary } from "../api.js";
 import { classifyFile } from "../lib/parseContextFile.js";
 import { useDocumentHandlers } from "../hooks/useDocumentHandlers.js";
 import { IconMessage, IconArrowUp, IconCloudUpload, IconPlus, IconX } from "@tabler/icons-react";
-import type { Exchange } from "@copper/contracts";
+import type { Exchange, LibraryFile } from "@copper/contracts";
+import LibraryShelf from "./library/LibraryShelf.js";
+import LibraryTakeover from "./library/LibraryTakeover.js";
 
 const LLM_MODELS = [
   { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
@@ -83,8 +85,21 @@ export default function ContextPanel() {
   const mergeServerVersion = useStore((s) => s.mergeServerVersion);
   const setLoading         = useStore((s) => s.setLoading);
   const openWizard         = useStore((s) => s.openWizard);
+  const libraryFiles       = useStore((s) => s.libraryFiles);
+  const libraryOpen        = useStore((s) => s.libraryOpen);
+  const setLibraryFiles    = useStore((s) => s.setLibraryFiles);
+  const setLibraryOpen     = useStore((s) => s.setLibraryOpen);
+  const addLibraryFile     = useStore((s) => s.addLibraryFile);
 
   const { launchWizard } = useDocumentHandlers();
+
+  // Load library whenever the project changes
+  useEffect(() => {
+    if (!version?.id) return;
+    getLibrary(version.id)
+      .then(({ files }) => setLibraryFiles(files))
+      .catch(() => { /* no library yet is fine */ });
+  }, [version?.id]);
 
   const [input, setInput]             = useState("");
   const [thinking, setThinking]       = useState(false);
@@ -131,7 +146,31 @@ export default function ContextPanel() {
       ...prev,
       ...files.map((f) => ({ id: `att_${Date.now()}_${f.name}`, name: f.name })),
     ]);
-    // TODO(human): Library surface not yet designed — stub handoff
+  }
+
+  function handleAddFile(file: File) {
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const cls = classifyFile(file.name);
+    // Spreadsheets → wizard routing (existing behavior)
+    if (cls === "table" || cls === "spreadsheet") {
+      setLibraryOpen(false);
+      void launchWizard(file);
+      return;
+    }
+    // Everything else → drop silently into library
+    const libFile: LibraryFile = {
+      id: `lib_${Date.now()}_${file.name}`,
+      name: file.name,
+      type: ext,
+      tier: "local",
+      folderPath: "Local/Media",
+      updatedAt: new Date().toISOString(),
+      size: file.size,
+    };
+    addLibraryFile(libFile);
+    if (version?.id) {
+      void putLibrary(version.id, [...libraryFiles, libFile]);
+    }
   }
 
   // ── File picker (for [+] menu) ────────────────────────────────────────────
@@ -254,7 +293,7 @@ export default function ContextPanel() {
         </div>
       )}
 
-      {/* Disambiguation overlay (tabular file on context panel) */}
+      {/* Disambiguation overlay */}
       {disambig && (
         <div className="cp-disambig-overlay">
           <div className="cp-disambig-box">
@@ -281,138 +320,139 @@ export default function ContextPanel() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="cp-header">
-        <IconMessage size={13} />
-        <span>Context</span>
-        {contextFiles.length > 0 && (
-          <span className="cp-file-count">
-            {contextFiles.length} file{contextFiles.length !== 1 ? "s" : ""}
-          </span>
-        )}
-      </div>
+      {/* Library mode: full takeover of the context column */}
+      {libraryOpen ? (
+        <LibraryTakeover onAddFile={handleAddFile} />
+      ) : (
+        <>
+          {/* Library shelf — pinned above conversation */}
+          <LibraryShelf />
 
-      {/* Persistent context files */}
-      {contextFiles.length > 0 && (
-        <div className="cp-files">
-          {contextFiles.map((f) => (
-            <div key={f.name} className="cp-file-chip">{f.name}</div>
-          ))}
-        </div>
-      )}
-
-      {/* Exchange thread */}
-      <div className="cp-exchanges">
-        {exchanges.length === 0 && (
-          <div className="cp-empty">
-            <span>No conversation yet.</span>
-            <span>Describe what you want to build.</span>
+          {/* Header */}
+          <div className="cp-header">
+            <IconMessage size={13} />
+            <span>Context</span>
+            {contextFiles.length > 0 && (
+              <span className="cp-file-count">
+                {contextFiles.length} file{contextFiles.length !== 1 ? "s" : ""}
+              </span>
+            )}
           </div>
-        )}
-        {exchanges.map((ex) => (
-          <ExchangeBubble key={ex.id} exchange={ex} />
-        ))}
-        {thinking && (
-          <div className="exchange exchange--assistant">
-            <div className="ex-assistant-msg">
-              <div className="ex-text cp-thinking">Thinking…</div>
-            </div>
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
 
-      {/* Composer */}
-      <div className="cp-composer-wrap">
-        <div className="cp-composer" ref={composerRef}>
-          {/* [+] floating menu */}
-          {plusOpen && (
-            <div className="cp-plus-menu">
-              {visibleItems.map((def) => (
-                <button
-                  key={def.id}
-                  className="cp-plus-menu-item"
-                  onClick={() => activateMenuItem(def)}
-                >
-                  {def.getLabel(activePlan)}
-                </button>
+          {/* Persistent context files */}
+          {contextFiles.length > 0 && (
+            <div className="cp-files">
+              {contextFiles.map((f) => (
+                <div key={f.name} className="cp-file-chip">{f.name}</div>
               ))}
             </div>
           )}
 
-          {/* Pending attachments (transient Library parking) */}
-          {attachments.length > 0 && (
-            <div className="cp-attachments">
-              {attachments.map((a) => (
-                <div key={a.id} className="cp-attach-chip">
-                  <span className="cp-attach-name">{a.name}</span>
-                  <button
-                    className="cp-attach-remove"
-                    onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))}
-                  >
-                    <IconX size={10} />
-                  </button>
+          {/* Exchange thread */}
+          <div className="cp-exchanges">
+            {exchanges.length === 0 && (
+              <div className="cp-empty">
+                <span>No conversation yet.</span>
+                <span>Describe what you want to build.</span>
+              </div>
+            )}
+            {exchanges.map((ex) => (
+              <ExchangeBubble key={ex.id} exchange={ex} />
+            ))}
+            {thinking && (
+              <div className="exchange exchange--assistant">
+                <div className="ex-assistant-msg">
+                  <div className="ex-text cp-thinking">Thinking…</div>
                 </div>
-              ))}
-            </div>
-          )}
-
-          {/* Growing textarea */}
-          <textarea
-            ref={textareaRef}
-            className="cp-textarea-grow"
-            placeholder={`Message ${PLAN_LABELS[activePlan]} plan…`}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                void doSubmit();
-              }
-            }}
-            disabled={isLoading || thinking || !version}
-            rows={1}
-          />
-
-          {/* Bottom toolbar: [+], model selector, send */}
-          <div className="cp-composer-toolbar">
-            <button
-              className="cp-plus-btn"
-              type="button"
-              title="Add file or table"
-              onClick={() => setPlusOpen((v) => !v)}
-            >
-              <IconPlus size={13} />
-            </button>
-            <select
-              className="sel cp-model-sel"
-              value={llmModel}
-              onChange={(e) => setLlmModel(e.target.value)}
-            >
-              {LLM_MODELS.map((m) => (
-                <option key={m.id} value={m.id}>{m.label}</option>
-              ))}
-            </select>
-            <button
-              className="cp-send-btn-new"
-              type="button"
-              title="Send"
-              disabled={!canSubmit}
-              onClick={() => void doSubmit()}
-            >
-              <IconArrowUp size={14} />
-            </button>
+              </div>
+            )}
+            <div ref={bottomRef} />
           </div>
-        </div>
 
-        {/* Hidden file input (shared by all [+] menu items) */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          style={{ display: "none" }}
-          onChange={handleFileInputChange}
-        />
-      </div>
+          {/* Composer */}
+          <div className="cp-composer-wrap">
+            <div className="cp-composer" ref={composerRef}>
+              {plusOpen && (
+                <div className="cp-plus-menu">
+                  {visibleItems.map((def) => (
+                    <button
+                      key={def.id}
+                      className="cp-plus-menu-item"
+                      onClick={() => activateMenuItem(def)}
+                    >
+                      {def.getLabel(activePlan)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {attachments.length > 0 && (
+                <div className="cp-attachments">
+                  {attachments.map((a) => (
+                    <div key={a.id} className="cp-attach-chip">
+                      <span className="cp-attach-name">{a.name}</span>
+                      <button
+                        className="cp-attach-remove"
+                        onClick={() => setAttachments((prev) => prev.filter((x) => x.id !== a.id))}
+                      >
+                        <IconX size={10} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <textarea
+                ref={textareaRef}
+                className="cp-textarea-grow"
+                placeholder={`Message ${PLAN_LABELS[activePlan]} plan…`}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void doSubmit();
+                  }
+                }}
+                disabled={isLoading || thinking || !version}
+                rows={1}
+              />
+              <div className="cp-composer-toolbar">
+                <button
+                  className="cp-plus-btn"
+                  type="button"
+                  title="Add file or table"
+                  onClick={() => setPlusOpen((v) => !v)}
+                >
+                  <IconPlus size={13} />
+                </button>
+                <select
+                  className="sel cp-model-sel"
+                  value={llmModel}
+                  onChange={(e) => setLlmModel(e.target.value)}
+                >
+                  {LLM_MODELS.map((m) => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
+                </select>
+                <button
+                  className="cp-send-btn-new"
+                  type="button"
+                  title="Send"
+                  disabled={!canSubmit}
+                  onClick={() => void doSubmit()}
+                >
+                  <IconArrowUp size={14} />
+                </button>
+              </div>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              style={{ display: "none" }}
+              onChange={handleFileInputChange}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }

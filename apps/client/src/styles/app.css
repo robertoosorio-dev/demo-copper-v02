@@ -714,7 +714,7 @@
 .build-version {
   font-size: 10px;
   font-weight: 500;
-  color: var(--muted);
+  color: var(--txt3);
   letter-spacing: 0.03em;
   margin-left: 2px;
 }
@@ -1638,6 +1638,132 @@
 
 /* CardPlayer frame */
 .card-player-frame { width: 100%; }
+
+/* ==========================================================================
+   LIBRARY — Layout, Shelf, Takeover, FilePreview
+   ========================================================================== */
+
+/* Layout: library-open mode */
+.layout--library-open .context-panel { flex: 1; width: auto; min-width: 0; }
+.layout--library-open .plan-region { width: 172px; flex: none; opacity: 0.45; pointer-events: none; filter: saturate(.6); }
+
+/* Library shelf */
+.lib-shelf { flex: none; border-bottom: 1px solid var(--b); background: var(--bg2); padding: 9px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.lib-shelf:hover { background: #eff1f6; }
+.lib-shelf--empty { padding: 10px 12px; }
+.lib-shelf-head { display: flex; flex-direction: column; gap: 3px; flex: none; width: 62px; }
+.lib-shelf-t { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; letter-spacing: -.01em; color: var(--txt); }
+.lib-shelf-t svg { color: var(--blue-txt); }
+.lib-shelf-n { font-family: var(--mono); font-size: 10px; color: var(--txt3); line-height: 1; }
+.lib-shelf-add { font-size: 11.5px; color: var(--txt3); flex: 1; }
+.lib-strip { flex: 1; display: flex; align-items: flex-start; gap: 7px; overflow: hidden; }
+.lib-more { flex: none; width: 38px; height: 50px; border: 1px dashed var(--b2); border-radius: 3px; display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 10px; color: var(--txt3); background: var(--bg); }
+.lib-expand { flex: none; width: 26px; height: 26px; border-radius: 7px; border: 1px solid var(--b); background: var(--bg); display: flex; align-items: center; justify-content: center; color: var(--txt3); align-self: center; }
+.lib-shelf:hover .lib-expand { color: var(--blue-txt); border-color: var(--blue-bd); }
+
+/* Mini slot */
+.lib-mini { flex: none; width: 46px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+.lib-mname { font-family: var(--mono); font-size: 9px; line-height: 1.1; color: var(--txt2); text-align: center; max-width: 46px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Library takeover */
+.lib-takeover { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
+.lib-head { flex: none; border-bottom: 1px solid var(--b); padding: 10px 14px; display: flex; flex-direction: column; gap: 9px; background: var(--bg); }
+.lib-head-row { display: flex; align-items: center; gap: 8px; }
+.lib-back { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-family: inherit; color: var(--txt2); padding: 5px 10px 5px 8px; border-radius: 7px; border: 1px solid var(--b); background: var(--bg2); cursor: pointer; flex-shrink: 0; }
+.lib-back:hover { color: var(--txt); border-color: var(--b2); }
+.lib-title { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; letter-spacing: -.01em; color: var(--txt); flex-shrink: 0; }
+.lib-title svg { color: var(--blue-txt); }
+.lib-spacer { flex: 1; }
+.lib-search { display: flex; align-items: center; gap: 7px; width: 180px; padding: 6px 10px; border: 1px solid var(--b); border-radius: 8px; background: var(--bg2); color: var(--txt3); font-size: 12.5px; flex-shrink: 0; }
+.lib-viewtoggle { display: flex; border: 1px solid var(--b); border-radius: 8px; overflow: hidden; }
+.lib-view-btn { border: 0; background: var(--bg); padding: 6px 9px; cursor: pointer; color: var(--txt3); display: flex; align-items: center; }
+.lib-view-btn:disabled { opacity: .35; cursor: default; }
+.lib-view-btn + .lib-view-btn { border-left: 1px solid var(--b); }
+.lib-view-btn--on { background: var(--blue-bg); color: var(--blue-txt); }
+.lib-add-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--txt); color: #fff; border: 0; border-radius: 8px; padding: 7px 13px; font-size: 12.5px; font-weight: 500; font-family: inherit; cursor: pointer; letter-spacing: -.01em; flex-shrink: 0; }
+.lib-add-btn:hover { opacity: .85; }
+.lib-crumb { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11.5px; color: var(--txt2); }
+.lib-crumb-sep { color: var(--txt3); }
+.lib-crumb-here { color: var(--txt); }
+
+/* Tree + grid body */
+.lib-body { flex: 1; display: flex; min-height: 0; }
+.lib-tree { width: 208px; flex: none; border-right: 1px solid var(--b); background: var(--bg2); padding: 12px 8px; overflow: auto; }
+.lib-tree-grp { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--txt3); text-transform: uppercase; padding: 4px 8px 8px; }
+.lib-tree-node { display: flex; align-items: center; gap: 7px; padding: 6px 8px; border-radius: 7px; font-size: 13px; cursor: pointer; color: var(--txt); user-select: none; }
+.lib-tree-node:hover { background: #eff1f5; }
+.lib-tree-node--child { margin-left: 8px; }
+.lib-tree-node--deep  { margin-left: 24px; }
+.lib-tree-node--sel { background: var(--blue-bg); color: var(--blue-txt); font-weight: 500; }
+.lib-tree-node--sel svg { color: var(--blue-txt); }
+.lib-tree-tw { width: 12px; height: 12px; flex: none; color: var(--txt3); display: flex; align-items: center; justify-content: center; }
+.lib-tree-tw--empty { visibility: hidden; }
+.lib-tree-lbl { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-tree-ct { font-family: var(--mono); font-size: 10.5px; color: var(--txt3); }
+.lib-tree-node--sel .lib-tree-ct { color: var(--blue-txt); opacity: .8; }
+
+/* Large-icon grid */
+.lib-grid { flex: 1; min-width: 0; overflow: auto; padding: 20px 22px 26px; display: grid; grid-template-columns: repeat(auto-fill, 150px); gap: 6px 10px; align-content: start; }
+.lib-grid-empty { grid-column: 1 / -1; color: var(--txt3); font-size: 12px; text-align: center; padding: 40px 0; }
+.lib-tile { border-radius: 10px; padding: 14px 12px 12px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 11px; border: 1px solid transparent; transition: background .12s ease, border-color .12s ease; animation: lib-rise .42s cubic-bezier(.2,.7,.3,1) both; }
+.lib-tile:hover { background: var(--bg2); border-color: var(--b); }
+.lib-tile:hover .fp-page { transform: translateY(-2px); }
+.lib-tile--sel { background: var(--blue-bg); border-color: var(--blue-bd); }
+.lib-meta { display: flex; flex-direction: column; align-items: center; gap: 3px; max-width: 130px; }
+.lib-fname { font-size: 12px; letter-spacing: -.01em; text-align: center; line-height: 1.25; max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lib-tile--sel .lib-fname { color: var(--blue-txt); font-weight: 500; }
+.lib-sub { font-family: var(--mono); font-size: 10px; color: var(--txt3); line-height: 1; }
+
+@keyframes lib-rise {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: none; }
+}
+.lib-tile:nth-child(1) { animation-delay: .02s }
+.lib-tile:nth-child(2) { animation-delay: .05s }
+.lib-tile:nth-child(3) { animation-delay: .08s }
+.lib-tile:nth-child(4) { animation-delay: .11s }
+.lib-tile:nth-child(5) { animation-delay: .14s }
+.lib-tile:nth-child(6) { animation-delay: .17s }
+.lib-tile:nth-child(7) { animation-delay: .20s }
+@media (prefers-reduced-motion: reduce) { .lib-tile { animation: none; } .fp-page, .lib-tile, .lib-back { transition: none; } }
+
+/* ==========================================================================
+   FILE PREVIEW — mini and large document cards
+   ========================================================================== */
+
+/* Mini card (38x50) */
+.fp-mcard { position: relative; width: 38px; height: 50px; background: #fff; border: 1px solid var(--b2); border-radius: 2px; box-shadow: 0 3px 7px -4px rgba(20,24,40,.34); padding: 6px 5px; overflow: hidden; }
+.fp-mcard::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 2.5px; background: var(--tc, var(--txt3)); }
+.fp-ml { height: 2.5px; border-radius: 1px; background: #e9ecf1; margin-bottom: 3px; }
+.fp-ml-h { background: var(--tc, var(--txt3)); opacity: .85; width: 62%; height: 3.5px; margin-bottom: 4px; }
+.fp-ml-a { width: 90%; }
+.fp-ml-b { width: 70%; }
+.fp-ml-c { width: 80%; }
+.fp-mgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5px; margin-top: 1px; }
+.fp-mgrid i { height: 4px; background: #edf0f4; border-radius: 1px; }
+.fp-mgrid i.fp-hd { background: var(--tc, var(--txt3)); opacity: .85; }
+.fp-msb { height: 3.5px; width: 64%; background: var(--tc, var(--txt3)); opacity: .85; border-radius: 1px; margin-bottom: 4px; }
+.fp-mbb { height: 18px; background: #edf0f4; border-radius: 2px; }
+
+/* Large card (118x150) */
+.fp-page { position: relative; width: 118px; height: 150px; background: #fff; border: 1px solid var(--b2); border-radius: 3px; box-shadow: var(--shadow-card); padding: 14px 13px; overflow: hidden; transition: transform .14s ease; }
+.fp-page::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--tc, var(--txt3)); }
+.fp-page::after { content: ""; position: absolute; top: 0; right: 0; border-width: 0 13px 13px 0; border-style: solid; border-color: #fff #f0f2f6; filter: drop-shadow(-1px 1px 0 var(--b2)); }
+.fp-ln { height: 5px; border-radius: 2px; background: #e9ecf1; margin-bottom: 7px; }
+.fp-ln-h { height: 7px; background: var(--tc, var(--txt3)); opacity: .85; width: 60%; margin-bottom: 10px; }
+.fp-ln-s { width: 88%; }
+.fp-ln-m { width: 72%; }
+.fp-ln-l { width: 95%; }
+.fp-ln-x { width: 40%; }
+.fp-sheet { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 11px; gap: 2px; margin-top: 2px; }
+.fp-sheet i { background: #edf0f4; border-radius: 1px; }
+.fp-sheet i.fp-hd { background: var(--tc, var(--txt3)); opacity: .85; }
+.fp-sbar { height: 8px; width: 66%; background: var(--tc, var(--txt3)); opacity: .85; border-radius: 2px; margin-bottom: 9px; }
+.fp-sblk { height: 42px; background: #edf0f4; border-radius: 3px; margin-bottom: 7px; }
+.fp-sduo { display: flex; gap: 6px; }
+.fp-sduo span { flex: 1; height: 26px; background: #edf0f4; border-radius: 3px; }
+.fp-mdhh { font-family: var(--mono); font-size: 11px; line-height: 1; color: var(--tc, var(--txt3)); margin-bottom: 9px; }
+.fp-chip { position: absolute; left: 8px; bottom: 8px; font-family: var(--mono); font-size: 9px; letter-spacing: .06em; color: #fff; background: var(--tc, var(--txt3)); padding: 3px 5px; border-radius: 3px; }
 
 /* ── WIZARD SURFACE ───────────────────────────────────────────────────────── */
 .wizard-shell {

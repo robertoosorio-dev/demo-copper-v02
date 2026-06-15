@@ -1,4 +1,4 @@
-import type { Version, ReasoningLogEntry, Exchange } from "@copper/contracts";
+import type { Version, ReasoningLogEntry, Exchange, LibraryFile } from "@copper/contracts";
 import type { WizardShape } from "./wizardStandin.js";
 
 const BASE = "/api";
@@ -237,6 +237,16 @@ export async function adminQAFetchKBFiles(): Promise<Array<{ path: string; conte
     }),
   );
   return results;
+}
+
+// ── Library ───────────────────────────────────────────────────────────────────
+
+export function getLibrary(projectId: string): Promise<{ files: LibraryFile[] }> {
+  return get<{ files: LibraryFile[] }>(`/projects/${projectId}/library`);
+}
+
+export function putLibrary(projectId: string, files: LibraryFile[]): Promise<{ ok: boolean }> {
+  return put<{ ok: boolean }>(`/projects/${projectId}/library`, { files });
 }
 
 // ── Card definitions ──────────────────────────────────────────────────────────

@@ -20,6 +20,7 @@ import { makeChatRouter } from "./routes/chat.js";
 import { makeAdminRouter } from "./routes/admin.js";
 import { makeDebugRouter } from "./routes/debug.js";
 import { makeCardsRouter, ensureCardsSeedded } from "./routes/cards.js";
+import { makeLibraryRouter } from "./routes/library.js";
 
 const PORT = process.env.PORT ?? 3001;
 const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "http://localhost:5173";
@@ -46,6 +47,7 @@ app.use("/api/projects", makeChatRouter(store, getKB));
 app.use("/api/admin", makeAdminRouter(reloadKB));
 app.use("/api/cards", makeCardsRouter());  // GET /definitions, POST /seed
 app.use("/api/debug", makeDebugRouter(store, getKB));
+app.use("/api/projects", makeLibraryRouter());
 
 // Serve built client in production (same container, no CORS needed)
 const DIST = path.resolve(__dirname, "../../apps/client/dist");

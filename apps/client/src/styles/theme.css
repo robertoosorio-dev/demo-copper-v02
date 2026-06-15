@@ -7,19 +7,28 @@
 }
 
 :root {
-  --bg: #ffffff;
-  --bg2: #f6f5f2;
-  --bg3: #eeece8;
-  --bg4: #e4e2dd;
-  --txt: #1a1a18;
-  --txt2: #5f5e5a;
-  --txt3: #9a9890;
-  --b: rgba(0, 0, 0, 0.09);
-  --b2: rgba(0, 0, 0, 0.16);
-  --b3: rgba(0, 0, 0, 0.26);
-  --blue-bg: #e6f1fb;
-  --blue-txt: #185fa5;
-  --blue-bd: #378add;
+  /* ── surfaces ── */
+  --bg: #ffffff;        /* panels, cards */
+  --bg2: #fbfcfd;       /* secondary fill */
+  --bg3: #f6f7f9;       /* app background */
+  --bg4: #eef0f5;       /* hover / recessed */
+
+  /* ── ink ── */
+  --txt: #1a1d24;
+  --txt2: #6a7180;
+  --txt3: #9aa1ae;
+
+  /* ── borders ── */
+  --b: #e5e8ee;
+  --b2: #d6dae3;
+  --b3: #bcc2cc;
+
+  /* ── accent (the one saturated UI color) ── */
+  --blue-bg: #eceefb;   /* accent-wash */
+  --blue-txt: #4856c8;  /* accent */
+  --blue-bd: #c8cef4;   /* accent-line */
+
+  /* ── semantic colors ── */
   --teal-bg: #e1f5ee;
   --teal-txt: #0f6e56;
   --teal-bd: #1d9e75;
@@ -39,47 +48,33 @@
   --ok-txt: #3b6d11;
   --warn-bg: #faeeda;
   --warn-txt: #854f0b;
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  --mono: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+
+  /* ── file-type colors (document previews & chips only) ── */
+  --type-docx: #2b579a;
+  --type-xlsx: #1e7145;
+  --type-pptx: #c24f2c;
+  --type-pdf:  #c8312b;
+  --type-md:   #54607a;
+
+  /* ── typography ── */
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --mono: "SF Mono", ui-monospace, "JetBrains Mono", "Roboto Mono", Menlo, monospace;
   --hl: #f0a020;
+
+  /* ── elevation & radius ── */
+  --shadow-card:  0 6px 14px -8px rgba(20,24,40,.34);
+  --shadow-panel: 0 24px 60px -28px rgba(20,24,40,.30);
+  --radius-sm: 6px;
+  --radius:    8px;
+  --radius-lg: 12px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1c1c1a;
-    --bg2: #252523;
-    --bg3: #2e2e2b;
-    --bg4: #363632;
-    --txt: #e8e6df;
-    --txt2: #9a9890;
-    --txt3: #6a6860;
-    --b: rgba(255, 255, 255, 0.07);
-    --b2: rgba(255, 255, 255, 0.13);
-    --b3: rgba(255, 255, 255, 0.24);
-    --blue-bg: #042c53;
-    --blue-txt: #85b7eb;
-    --blue-bd: #378add;
-    --teal-bg: #04342c;
-    --teal-txt: #5dcaa5;
-    --teal-bd: #1d9e75;
-    --amber-bg: #412402;
-    --amber-txt: #ef9f27;
-    --amber-bd: #ba7517;
-    --green-bg: #173404;
-    --green-txt: #97c459;
-    --green-bd: #639922;
-    --coral-bg: #4a1b0c;
-    --coral-txt: #f0997b;
-    --coral-bd: #d85a30;
-    --purple-bg: #26215c;
-    --purple-txt: #afa9ec;
-    --purple-bd: #7f77dd;
-    --ok-bg: #173404;
-    --ok-txt: #97c459;
-    --warn-bg: #412402;
-    --warn-txt: #ef9f27;
-  }
-}
+/* ── file-type cascade helper ─────────────────────────────────────── */
+[data-type="docx"] { --tc: var(--type-docx); }
+[data-type="xlsx"] { --tc: var(--type-xlsx); }
+[data-type="pptx"] { --tc: var(--type-pptx); }
+[data-type="pdf"]  { --tc: var(--type-pdf);  }
+[data-type="md"]   { --tc: var(--type-md);   }
 
 html, body {
   height: 100%;
@@ -672,7 +667,6 @@ html, body {
   position: fixed; inset: 0; background: rgba(240,238,234,.85);
   display: flex; align-items: center; justify-content: center; z-index: 500;
 }
-@media (prefers-color-scheme: dark) { .loading-overlay { background: rgba(28,28,26,.85); } }
 .loading-spinner {
   width: 24px; height: 24px; border: 2px solid var(--b2);
   border-top-color: var(--blue-txt); border-radius: 50%;

@@ -171,6 +171,7 @@ function MainApp() {
   const loadVersionStore  = useStore((s) => s.loadVersion);
   const saveNow           = useStore((s) => s.saveNow);
   const openWizard        = useStore((s) => s.openWizard);
+  const libraryOpen       = useStore((s) => s.libraryOpen);
   const [showNewProject, setShowNewProject] = useState(false);
 
   useEffect(() => {
@@ -271,7 +272,7 @@ function MainApp() {
       ) : isQA ? (
         <QAViewer />
       ) : (
-        <div className="layout">
+        <div className={`layout${libraryOpen ? " layout--library-open" : ""}`}>
           <ContextPanel />
 
           <div className="plan-region">

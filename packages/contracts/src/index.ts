@@ -413,3 +413,15 @@ export interface CardInstance {
   objectId: string;
   payload: Record<string, unknown>;
 }
+
+// ── Library — view metadata (stored at project_data/{id}/library.json) ────────
+
+export interface LibraryFile {
+  id: string;
+  name: string;
+  type: "docx" | "xlsx" | "pptx" | "pdf" | "md" | string;
+  tier: "global" | "local";   // a label — no engine meaning
+  folderPath: string;          // inert; tree is grouped from this
+  updatedAt: string;           // drives flat recents in the shelf
+  size?: number;
+}
