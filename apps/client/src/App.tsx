@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Routes, Route, Link, useLocation } from "react-router-dom";
 import { useStore } from "./store.js";
 import { listProjects, loadProject, createProject } from "./api.js";
+import { getWizardShape } from "./wizardStandin.js";
 import ContextPanel from "./components/ContextPanel.js";
 import PlanDocument from "./components/PlanDocument.js";
 import ProjectModel from "./components/ProjectModel.js";
@@ -38,6 +39,18 @@ const PLANS = [
   { id: "media",    label: "Media Plan",    icon: IconChartBar,  stub: false },
   { id: "creative", label: "Creative Plan", icon: IconPalette,   stub: true  },
 ] as const;
+
+function useGlobalDropGuard() {
+  useEffect(() => {
+    const stop = (e: DragEvent) => e.preventDefault();
+    document.addEventListener("dragover", stop);
+    document.addEventListener("drop", stop);
+    return () => {
+      document.removeEventListener("dragover", stop);
+      document.removeEventListener("drop", stop);
+    };
+  }, []);
+}
 
 function SaveButton({ status, onSave }: { status: string; onSave: () => void }) {
   if (status === "saving")
@@ -152,6 +165,8 @@ function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate:
 }
 
 function MainApp() {
+  useGlobalDropGuard();
+
   const location = useLocation();
   const version           = useStore((s) => s.version);
   const availableProjects = useStore((s) => s.availableProjects);
@@ -163,6 +178,7 @@ function MainApp() {
   const setAvailableProjects = useStore((s) => s.setAvailableProjects);
   const loadVersionStore  = useStore((s) => s.loadVersion);
   const saveNow           = useStore((s) => s.saveNow);
+  const openWizard        = useStore((s) => s.openWizard);
   const [showNewProject, setShowNewProject] = useState(false);
 
   useEffect(() => {
@@ -201,7 +217,6 @@ function MainApp() {
   const isQA      = location.pathname === "/qa";
   const isHistory = location.pathname === "/history";
   const isAdmin   = location.pathname === "/admin";
-  const isWizard  = location.pathname === "/wizard";
 
   return (
     <div className="app-shell">
@@ -211,6 +226,10 @@ function MainApp() {
           onCreate={handleCreateProject}
         />
       )}
+
+      {/* Wizard modal — overlays everything */}
+      <WizardSurface />
+
       <div className="topbar">
         <Link to="/" className="brand" title="Back to main view">
           <IconAffiliate size={16} />
@@ -237,10 +256,10 @@ function MainApp() {
             <IconHistory size={14} />
             Versions
           </Link>
-          <Link to={isWizard ? "/" : "/wizard"} className={`icon-btn${isWizard ? " active" : ""}`} title={isWizard ? "Back to main view" : "Card Wizard"}>
+          <button className="icon-btn" onClick={() => openWizard(getWizardShape())} title="Open wizard (test stand-in)">
             <IconWand size={14} />
             Wizard
-          </Link>
+          </button>
           <Link to={isQA ? "/" : "/qa"} className={`icon-btn${isQA ? " active" : ""}`} title={isQA ? "Back to main view" : "Transaction / QA Viewer"}>
             <IconBug size={14} />
             Reasoning
@@ -260,8 +279,6 @@ function MainApp() {
 
       {isAdmin ? (
         <AdminPanel />
-      ) : isWizard ? (
-        <WizardSurface />
       ) : isHistory ? (
         <HistoryPanel />
       ) : isQA ? (

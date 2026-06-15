@@ -1,10 +1,10 @@
 import React, { useRef, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useStore } from "../store.js";
 import ProposalCard from "./ProposalCard.js";
 import { CardPlayer } from "./cards/CardPlayer.js";
 import { chat } from "../api.js";
-import { IconMessage, IconArrowUp } from "@tabler/icons-react";
+import { classifyFile, parseContextFile, parkRawFile, buildWizardShapeFromFile } from "../lib/parseContextFile.js";
+import { IconMessage, IconArrowUp, IconCloudUpload } from "@tabler/icons-react";
 import type { Exchange } from "@copper/contracts";
 
 export default function ContextPanel() {
@@ -17,10 +17,11 @@ export default function ContextPanel() {
   const appendExchanges    = useStore((s) => s.appendExchanges);
   const mergeServerVersion = useStore((s) => s.mergeServerVersion);
   const setLoading         = useStore((s) => s.setLoading);
+  const openWizard         = useStore((s) => s.openWizard);
 
-  const navigate = useNavigate();
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,12 +49,8 @@ export default function ContextPanel() {
     try {
       const result = await chat(version.id!, text, llmModel, [...exchanges, userExchange], version);
       appendExchanges([result.exchange]);
-      // Merge server version (updated plans) while preserving client-side exchanges
       if (result.version) mergeServerVersion(result.version);
-      // Engine returned a wizard shape — hand off to the wizard surface
-      if (result.wizard) {
-        navigate("/wizard", { state: { shape: result.wizard } });
-      }
+      if (result.wizard) openWizard(result.wizard);
     } catch (err) {
       appendExchanges([{
         id: `ex_err_${Date.now()}`,
@@ -68,8 +65,55 @@ export default function ContextPanel() {
     }
   }
 
+  async function handleFiles(files: File[]) {
+    for (const f of files) {
+      const cls = classifyFile(f.name);
+      try {
+        if (cls === "file") {
+          // park as context only — no wizard
+          const _ = parkRawFile(f); void _;
+        } else {
+          const parsed = await parseContextFile(f);
+          openWizard(buildWizardShapeFromFile(parsed));
+          break; // one wizard at a time
+        }
+      } catch (err) {
+        console.error("[ContextPanel drop]", err);
+      }
+    }
+  }
+
+  function handleDragEnter(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(true);
+  }
+  function handleDragLeave(e: React.DragEvent) {
+    if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget as Node)) return;
+    setDragOver(false);
+  }
+  function handleDragOver(e: React.DragEvent) { e.preventDefault(); }
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    await handleFiles(Array.from(e.dataTransfer.files));
+  }
+
   return (
-    <div className="context-panel">
+    <div
+      className={`context-panel${dragOver ? " context-panel--drag" : ""}`}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {dragOver && (
+        <div className="drop-overlay">
+          <IconCloudUpload size={28} />
+          <span className="drop-overlay-label">Drop File</span>
+          <span className="drop-overlay-sub">tables → wizard · docs → context</span>
+        </div>
+      )}
+
       <div className="cp-header">
         <IconMessage size={13} />
         <span>Context</span>
