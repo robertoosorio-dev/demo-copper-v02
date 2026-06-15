@@ -38,7 +38,7 @@ export const CARD_DEFINITIONS: CardDefinition[] = [
     },
     allowedActions: ["inspect", "reload", "delete"],
     fallbackText: "I analyzed the source and found row/column counts, warnings, and live-feed status.",
-    whenToUse: "A source has been read and the system can summarize what it found: row counts, column counts, live-feed status, warnings.",
+    whenToUse: "A source has been read and the system can summarize what it found: row counts, column counts, live-feed status, warnings. ALSO use when the user asks to describe or summarize an existing table in the project model — populate tableName, columns (count of known fields), rows (0 if unknown), sourceLabel from Import if present, isLiveFeed if the import is recurring, status: 'analyzed'.",
     whenNotToUse: "Listing specific data-quality issues → validationFindings. Showing the final row grid → tablePreview. Summarizing a mutation → changeSummary.",
   },
 
