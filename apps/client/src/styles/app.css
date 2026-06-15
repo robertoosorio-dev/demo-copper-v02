@@ -710,6 +710,15 @@
   padding: 1px 5px;
 }
 
+/* ── BUILD VERSION ── */
+.build-version {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.03em;
+  margin-left: 2px;
+}
+
 /* ── VERSION HISTORY PANEL ── */
 .history-shell {
   display: flex;

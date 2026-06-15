@@ -1,0 +1,72 @@
+# Media Plan — Luminary Health, Q3 2025 (NA)
+
+## Scope
+
+Advertiser: Luminary Health (LMH). Markets: US (EN + ES). Flight: Jul 1 – Sep 30, 2025.
+Objective: prospecting + retargeting for appointment bookings.
+
+## Media Partners & Connectors
+
+- Meta (Facebook + Instagram) — connector: Direct Publisher (walled garden). Click tracking: On.
+- DV360 — connector: Google DV360 (served). Click tracking: On.
+- Yahoo DSP — connector: Yahoo DSP 3PAS (served). Click tracking: On.
+
+## Partner Campaigns & Ad Groups (external)
+
+- Meta campaign "LMH_Q325_Prospecting_Meta" with ad groups: AG_Meta_EN_HighIntent, AG_Meta_EN_Broad, AG_Meta_ES_HighIntent.
+- DV360 campaign "LMH_Q325_Retarget_DV360" with ad group: AG_DV360_Retarget.
+- Yahoo campaign "LMH_Q325_Prospecting_Yahoo" with ad group: AG_Yahoo_Prosp.
+
+## Placement Groups
+
+- PS_LMH_Q325_Meta_EN_Prosp — seat: Luminary Health, advertiser: LMH, binds to Meta campaign LMH_Q325_Prospecting_Meta.
+- PS_LMH_Q325_DV360_Retarget — seat: Luminary Health, advertiser: LMH, binds to DV360 campaign LMH_Q325_Retarget_DV360.
+- PS_LMH_Q325_Yahoo_Prosp — seat: Luminary Health, advertiser: LMH, binds to Yahoo campaign LMH_Q325_Prospecting_Yahoo.
+
+## Placements
+
+Walled garden (Meta, 1:1 placement ↔ ad group):
+
+- P_LMH_FB_EN_HighIntent → AG_Meta_EN_HighIntent. Feed, Adaptive. Under PS_LMH_Q325_Meta_EN_Prosp.
+- P_LMH_FB_EN_Broad → AG_Meta_EN_Broad. Feed, Adaptive. Under PS_LMH_Q325_Meta_EN_Prosp.
+- P_LMH_FB_ES_HighIntent → AG_Meta_ES_HighIntent. Feed, Adaptive. Under PS_LMH_Q325_Meta_EN_Prosp.
+
+Served (DV360, many placements : 1 ad group):
+
+- P_LMH_DV360_Ret_300x250 → AG_DV360_Retarget. Standard Display (HTML), 300x250. Under PS_LMH_Q325_DV360_Retarget.
+- P_LMH_DV360_Ret_728x90 → AG_DV360_Retarget. Standard Display (HTML), 728x90. Under PS_LMH_Q325_DV360_Retarget.
+- P_LMH_DV360_Ret_160x600 → AG_DV360_Retarget. Standard Display (HTML), 160x600. Under PS_LMH_Q325_DV360_Retarget.
+
+Served (Yahoo):
+
+- P_LMH_Yahoo_Prosp_300x250 → AG_Yahoo_Prosp. Standard Display (HTML), 300x250. Under PS_LMH_Q325_Yahoo_Prosp.
+
+## Experience Groups & Flights
+
+- EG_LMH_EN_HighIntent (Adaptive, LIVE) on P_LMH_FB_EN_HighIntent and the DV360 retarget placements (P_LMH_DV360_Ret_300x250, P_LMH_DV360_Ret_728x90, P_LMH_DV360_Ret_160x600).
+  Current flight: Flight_LMH_Q3_Main, Jul 1 – Sep 30, goal event Click, rotation Random.
+- EG_LMH_EN_Broad (Adaptive) on P_LMH_FB_EN_Broad.
+  Current flight: Flight_LMH_Q3_Broad, Jul 1 – Sep 30.
+- EG_LMH_ES_HighIntent (Adaptive) on P_LMH_FB_ES_HighIntent and P_LMH_Yahoo_Prosp_300x250.
+  Current flight: Flight_LMH_Q3_ES, Jul 1 – Sep 30.
+
+## Creatives
+
+- crv_LMH_Hero_EN_Image (Adaptive, 300x250 / 1200x628, Display Interactive) under EG_LMH_EN_HighIntent and EG_LMH_EN_Broad.
+- crv_LMH_Hero_EN_Video (Adaptive, 1080x1080, Display Interactive) under EG_LMH_EN_HighIntent.
+- crv_LMH_Hero_ES_Image (Adaptive, 300x250, Display Interactive) under EG_LMH_ES_HighIntent.
+
+## Landing Page Groups & Pages
+
+- LPS_LMH_US_EN_Q3 (scope: US English; where used: EG_LMH_EN_HighIntent, EG_LMH_EN_Broad).
+  Pages:
+  - lp_default_en: Default → luminaryhealth.com/q3-en
+  - lp_targeted_en: Targeted (High-Intent) → luminaryhealth.com/q3-en-hi
+- LPS_LMH_US_ES_Q3 (scope: US Spanish; where used: EG_LMH_ES_HighIntent).
+  Pages:
+  - lp_default_es: Default → luminaryhealth.com/q3-es
+
+## Pixels
+
+- PIX_Conv_Appointment — tracks Impression, scope: conversion, pixel type: conversion, targets CREATIVE crv_LMH_Hero_EN_Image. Client notification, Imp Loaded.
+- PIX_Conv_AccountCreated — tracks Impression, scope: conversion, pixel type: conversion, targets PLACEMENT P_LMH_DV360_Ret_300x250. Client notification, Imp Loaded.

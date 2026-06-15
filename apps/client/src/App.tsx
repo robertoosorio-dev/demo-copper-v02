@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Routes, Route, Link, useLocation } from "react-router-dom";
 import { useStore } from "./store.js";
+import { APP_VERSION } from "./version.js";
 import { listProjects, loadProject, createProject } from "./api.js";
 import { getWizardShape } from "./wizardStandin.js";
 import ContextPanel from "./components/ContextPanel.js";
@@ -227,6 +228,7 @@ function MainApp() {
           CoPPER
           <span className="brand-v">v2</span>
         </Link>
+        <span className="build-version">{APP_VERSION}</span>
         <div className="sep" />
 
         {version ? (
