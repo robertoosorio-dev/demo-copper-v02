@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useStore } from "../store.js";
 import ProposalCard from "./ProposalCard.js";
 import { CardPlayer } from "./cards/CardPlayer.js";
@@ -17,6 +18,7 @@ export default function ContextPanel() {
   const mergeServerVersion = useStore((s) => s.mergeServerVersion);
   const setLoading         = useStore((s) => s.setLoading);
 
+  const navigate = useNavigate();
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -48,6 +50,10 @@ export default function ContextPanel() {
       appendExchanges([result.exchange]);
       // Merge server version (updated plans) while preserving client-side exchanges
       if (result.version) mergeServerVersion(result.version);
+      // Engine returned a wizard shape — hand off to the wizard surface
+      if (result.wizard) {
+        navigate("/wizard", { state: { shape: result.wizard } });
+      }
     } catch (err) {
       appendExchanges([{
         id: `ex_err_${Date.now()}`,

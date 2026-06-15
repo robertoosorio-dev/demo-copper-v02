@@ -4,6 +4,7 @@ import type { Exchange, Intent, ReasoningLogEntry, Version } from "@copper/contr
 import { routeLLM } from "../llm/router.js";
 import { buildSystemPrompt } from "../llm/systemPrompt.js";
 import { applyOps } from "../llm/applyOps.js";
+import { detectWizardIntent, getWizardShape } from "../wizardStandin.js";
 
 export function makeChatRouter(store: ProjectStore, getKB: () => string = () => ""): Router {
   const router = Router();
@@ -18,6 +19,22 @@ export function makeChatRouter(store: ProjectStore, getKB: () => string = () => 
     };
 
     if (!message?.trim()) return res.status(400).json({ error: "message required" });
+
+    // Stand-in engine seam: return a wizard shape when intent is detected.
+    // Replace this block with real LLM-driven wizard generation in M3.
+    if (detectWizardIntent(message)) {
+      const assistantExchange: Exchange = {
+        id: `ex_a_${Date.now()}`,
+        role: "assistant",
+        text: "Let me walk you through this — here's the setup wizard.",
+        status: "success",
+        startedAt: new Date().toISOString(),
+        responseTimeMs: 0,
+        llmModel,
+        planType: null,
+      };
+      return res.json({ exchange: assistantExchange, version: null, wizard: getWizardShape() });
+    }
 
     const projectId = req.params.id;
     // Use the client's current version as the base (may be provisional/unsaved).

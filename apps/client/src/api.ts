@@ -1,4 +1,5 @@
 import type { Version, ReasoningLogEntry, Exchange } from "@copper/contracts";
+import type { WizardShape } from "./wizardStandin.js";
 
 const BASE = "/api";
 
@@ -94,6 +95,7 @@ export interface VersionDiff {
 export interface ChatResponse {
   exchange: Exchange;
   version: Version | null;
+  wizard?: WizardShape;
 }
 
 export function chat(

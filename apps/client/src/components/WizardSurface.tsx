@@ -1,7 +1,8 @@
 import React, { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { CARD_REGISTRY } from "./cards/registry.js";
 import { getWizardShape } from "../wizardStandin.js";
-import type { WizardStep } from "../wizardStandin.js";
+import type { WizardStep, WizardShape } from "../wizardStandin.js";
 import type { ValidationFinding } from "./cards/ValidationFindingsCard.js";
 
 type Draft = Record<string, Record<string, unknown>>;
@@ -59,7 +60,9 @@ function buildCallbacks(
 }
 
 export function WizardSurface() {
-  const shape = getWizardShape();
+  const location = useLocation();
+  const shape: WizardShape =
+    (location.state as { shape?: WizardShape } | null)?.shape ?? getWizardShape();
   const { title, steps, commit } = shape.wizard;
 
   const [currentIdx, setCurrentIdx] = useState(0);
