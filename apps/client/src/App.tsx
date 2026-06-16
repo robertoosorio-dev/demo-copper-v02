@@ -56,7 +56,7 @@ function ResizeHandle({ getWidth, min, onResize }: { getWidth: () => number; min
   return <div className="panel-resize-handle" onMouseDown={handleMouseDown} />;
 }
 
-function PanelStripe({ icon: Icon, color, title, onClick }: { icon: React.ComponentType<{ size?: number | string }>; color?: string; title: string; onClick: () => void }) {
+function PanelStripe({ icon: Icon, color, title, onClick }: { icon: React.ComponentType<{ size?: number | string; style?: React.CSSProperties }>; color?: string; title: string; onClick: () => void }) {
   return (
     <div className="panel-stripe" onClick={onClick} title={title}>
       <Icon size={15} style={color ? { color } : undefined} />
