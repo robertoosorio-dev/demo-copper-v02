@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Library — collapsed (default)</title>
+<style>
+  :root{
+    --paper:#F6F7F9;--surface:#FFFFFF;--surface-2:#FBFCFD;
+    --line:#E5E8EE;--line-strong:#D6DAE3;
+    --ink:#1A1D24;--muted:#6A7180;--faint:#9AA1AE;
+    --accent:#4856C8;--accent-wash:#ECEEFB;
+    --docx:#2B579A;--xlsx:#1E7145;--pptx:#C24F2C;--pdf:#C8312B;--md:#54607A;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono","Roboto Mono",Menlo,monospace;
+    --ui:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{font-family:var(--ui);color:var(--ink);background:var(--paper);
+    -webkit-font-smoothing:antialiased;display:flex;align-items:center;justify-content:center;padding:28px;}
+
+  .app{width:1280px;max-width:100%;height:760px;background:var(--surface);
+    border:1px solid var(--line-strong);border-radius:12px;
+    box-shadow:0 24px 60px -28px rgba(20,24,40,.30);overflow:hidden;display:flex;flex-direction:column;}
+
+  .topbar{height:46px;flex:none;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;
+    padding:0 16px;background:var(--surface-2);}
+  .brand{display:flex;align-items:center;gap:9px;}
+  .brand .dot{width:16px;height:16px;border-radius:5px;background:linear-gradient(135deg,var(--accent),#7C86E6);}
+  .brand b{font-size:13px;letter-spacing:-.01em;}
+  .topbar .proj{font:11px/1 var(--mono);color:var(--muted);padding:5px 9px;border:1px solid var(--line);
+    border-radius:6px;background:var(--surface);}
+  .topbar .spacer{flex:1;}
+
+  .body{flex:1;display:flex;min-height:0;}
+
+  /* ============ Context column (thin, default) ============ */
+  .context{width:372px;flex:none;display:flex;flex-direction:column;border-right:1px solid var(--line);
+    background:var(--surface);}
+
+  /* ---- the thin Library shelf (the peek) ---- */
+  .shelf{flex:none;border-bottom:1px solid var(--line);background:var(--surface-2);
+    padding:9px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;}
+  .shelf:hover{background:#F2F4F8;}
+  .shelf .head{display:flex;flex-direction:column;gap:3px;flex:none;width:62px;}
+  .shelf .head .t{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;letter-spacing:-.01em;}
+  .shelf .head .t svg{width:14px;height:14px;color:var(--accent);}
+  .shelf .head .n{font:10px/1 var(--mono);color:var(--faint);}
+  .strip{flex:1;display:flex;align-items:flex-start;gap:7px;overflow:hidden;}
+
+  .mini{flex:none;width:46px;display:flex;flex-direction:column;align-items:center;gap:4px;}
+  .mcard{position:relative;width:38px;height:50px;background:#fff;border:1px solid var(--line-strong);
+    border-radius:2px;box-shadow:0 3px 7px -4px rgba(20,24,40,.34);padding:6px 5px;overflow:hidden;}
+  .mcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2.5px;background:var(--tc);}
+  .mcard .ml{height:2.5px;border-radius:1px;background:#E9ECF1;margin-bottom:3px;}
+  .mcard .ml.h{background:var(--tc);opacity:.85;width:62%;height:3.5px;margin-bottom:4px;}
+  .mcard .ml.a{width:90%;}.mcard .ml.b{width:70%;}.mcard .ml.c{width:80%;}
+  .mcard .mgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5px;margin-top:1px;}
+  .mcard .mgrid i{height:4px;background:#EDF0F4;border-radius:1px;}
+  .mcard .mgrid i.hd{background:var(--tc);opacity:.85;}
+  .mcard .mslide .sb{height:3.5px;width:64%;background:var(--tc);opacity:.85;border-radius:1px;margin-bottom:4px;}
+  .mcard .mslide .bb{height:18px;background:#EDF0F4;border-radius:2px;}
+  .mname{font:9px/1.1 var(--mono);color:var(--muted);text-align:center;max-width:46px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  .more{flex:none;width:38px;height:50px;border:1px dashed var(--line-strong);border-radius:3px;
+    display:flex;align-items:center;justify-content:center;font:10px/1 var(--mono);color:var(--muted);
+    background:var(--surface);}
+  .shelf .expand{flex:none;width:26px;height:26px;border-radius:7px;border:1px solid var(--line);
+    background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--muted);align-self:center;}
+  .shelf:hover .expand{color:var(--accent);border-color:#C8CEF4;}
+  .shelf .expand svg{width:14px;height:14px;}
+
+  /* ---- conversation ---- */
+  .convo{flex:1;overflow:auto;padding:16px 14px;display:flex;flex-direction:column;gap:12px;background:var(--surface);}
+  .msg{border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:var(--surface-2);}
+  .msg .body{font-size:12.5px;line-height:1.5;color:#33384;}
+  .msg .body{color:#363B45;}
+  .msg .body b{font-weight:600;color:var(--ink);}
+  .msg .stamp{margin-top:8px;font:10px/1 var(--mono);color:var(--faint);}
+  .msg.user{background:var(--accent-wash);border-color:#D7DBF6;align-self:flex-end;max-width:88%;}
+  .msg.user .body{color:#2C3258;}
+
+  /* ---- composer ---- */
+  .composer{flex:none;border-top:1px solid var(--line);padding:11px 12px 12px;background:var(--surface);}
+  .attach{display:inline-flex;align-items:center;gap:6px;font:11px/1 var(--mono);color:var(--muted);
+    background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:5px 7px;margin-bottom:8px;}
+  .attach .x{color:var(--faint);cursor:pointer;}
+  .attach svg{width:12px;height:12px;color:var(--docx);}
+  .inputwrap{border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);
+    padding:10px 11px;display:flex;flex-direction:column;gap:9px;}
+  .inputwrap .txt{font-size:13px;color:var(--ink);min-height:20px;}
+  .inputwrap .txt .ph{color:var(--faint);}
+  .crow{display:flex;align-items:center;gap:8px;}
+  .iconbtn{width:28px;height:28px;border-radius:7px;border:1px solid var(--line);background:var(--surface-2);
+    display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer;}
+  .iconbtn svg{width:14px;height:14px;}
+  .model{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);
+    border:1px solid var(--line);border-radius:7px;padding:5px 9px;background:var(--surface-2);cursor:pointer;}
+  .model svg{width:12px;height:12px;}
+  .crow .spacer{flex:1;}
+  .send{width:30px;height:30px;border-radius:8px;border:0;background:var(--ink);color:#fff;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .send svg{width:15px;height:15px;}
+
+  /* ============ Plans region (active main area) ============ */
+  .plans{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--surface);}
+  .ptabs{flex:none;height:42px;border-bottom:1px solid var(--line);display:flex;align-items:stretch;
+    padding:0 8px;gap:2px;background:var(--surface-2);}
+  .ptab{display:flex;align-items:center;gap:7px;padding:0 14px;font-size:12.5px;color:var(--muted);
+    cursor:pointer;position:relative;}
+  .ptab svg{width:13px;height:13px;}
+  .ptab.act{color:var(--ink);font-weight:500;}
+  .ptab.act::after{content:"";position:absolute;left:8px;right:8px;bottom:-1px;height:2px;background:var(--accent);border-radius:2px;}
+  .ptabs .spacer{flex:1;}
+  .ptabs .gtoggle{align-self:center;display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;}
+  .ptabs .gtoggle span{padding:5px 9px;font:10px/1 var(--mono);color:var(--muted);background:var(--surface);}
+  .ptabs .gtoggle span.on{background:var(--accent-wash);color:var(--accent);}
+
+  .plandoc{flex:1;overflow:auto;padding:30px 40px;}
+  .plandoc .eyebrow{font:10px/1 var(--mono);letter-spacing:.1em;color:var(--faint);text-transform:uppercase;margin-bottom:10px;}
+  .plandoc h1{font-size:21px;letter-spacing:-.02em;margin:0 0 6px;}
+  .plandoc .lede{font-size:13px;color:var(--muted);margin:0 0 22px;max-width:560px;line-height:1.5;}
+  .plandoc .struct{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;
+    padding:13px 15px;background:var(--surface-2);font-size:13px;color:#363B45;max-width:620px;margin-bottom:26px;line-height:1.55;}
+  .plandoc .struct b{color:var(--ink);}
+  .plansec{margin-bottom:22px;max-width:620px;}
+  .plansec .ph{font:11px/1 var(--mono);letter-spacing:.06em;color:var(--ink);font-weight:600;
+    border-bottom:1px solid var(--line);padding-bottom:7px;margin-bottom:11px;text-transform:uppercase;}
+  .pline{font:12px/1.7 var(--mono);color:#3A404B;}
+  .pline.ind{padding-left:22px;color:var(--muted);}
+  .pline .k{color:var(--faint);}
+
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span><b>Innervate</b></div>
+    <span class="proj">D28O_Campaign_Overview</span>
+    <span class="spacer"></span>
+  </div>
+
+  <div class="body">
+
+    <!-- ============ Context column ============ -->
+    <div class="context">
+
+      <!-- thin Library shelf — the collapsed peek -->
+      <div class="shelf" title="Open Library">
+        <div class="head">
+          <span class="t">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 5h16v14H4z"/><path d="M4 9h16"/><path d="M9 5v14"/></svg>
+            Library
+          </span>
+          <span class="n">20 files</span>
+        </div>
+
+        <div class="strip">
+          <!-- flat recents: mix of types AND tiers (the pdf is a global brand doc) -->
+          <div class="mini" style="--tc:var(--docx)">
+            <div class="mcard"><div class="ml h"></div><div class="ml a"></div><div class="ml b"></div><div class="ml c"></div></div>
+            <span class="mname">Brief</span>
+          </div>
+          <div class="mini" style="--tc:var(--xlsx)">
+            <div class="mcard"><div class="mgrid"><i class="hd"></i><i class="hd"></i><i class="hd"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+            <span class="mname">Media…</span>
+          </div>
+          <div class="mini" style="--tc:var(--pptx)">
+            <div class="mcard"><div class="mslide"><div class="sb"></div><div class="bb"></div></div></div>
+            <span class="mname">Channel…</span>
+          </div>
+          <div class="mini" style="--tc:var(--pdf)">
+            <div class="mcard"><div class="ml h"></div><div class="ml a"></div><div class="ml c"></div><div class="ml b"></div></div>
+            <span class="mname">Brand</span>
+          </div>
+          <div class="more">+16</div>
+        </div>
+
+        <div class="expand" aria-label="Expand library">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"/></svg>
+        </div>
+      </div>
+
+      <!-- conversation (the Brief Discussion Area) -->
+      <div class="convo">
+        <div class="msg">
+          <div class="body"><b>Initialized project</b> with data model and media-plan skeleton. Two source tables (HealthUserEvents, AppointmentRequests) feed three derived audiences — High Intent, Broad Health, Spanish Speakers. Plan skeleton: Meta + DV360 + Yahoo DSP.</div>
+          <div class="stamp">claude-sonnet-4-6 · 1840ms</div>
+        </div>
+        <div class="msg user">
+          <div class="body">Add a Spanish-language ad group to Meta for the high-intent audience.</div>
+        </div>
+        <div class="msg">
+          <div class="body">Added <b>LMH_ES_UA</b> routing. Spanish Speakers now feed a new Meta placement (P_LMH_FB_ES_HighIntent) alongside the Yahoo prospecting line. Two placements now target the US Spanish-speaking audience.</div>
+          <div class="stamp">claude-sonnet-4-6 · 2210ms</div>
+        </div>
+      </div>
+
+      <!-- composer -->
+      <div class="composer">
+        <span class="attach">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3v5h5"/><path d="M5 3h9l5 5v13H5z"/></svg>
+          Q3_Pacing_Update.xlsx
+          <span class="x">✕</span>
+        </span>
+        <div class="inputwrap">
+          <div class="txt"><span class="ph">Message the agent…</span></div>
+          <div class="crow">
+            <button class="iconbtn" title="Attach to this message">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <span class="model">
+              Claude Sonnet 4.6
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
+            </span>
+            <span class="spacer"></span>
+            <button class="send" title="Send">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ Plans region — the active working surface ============ -->
+    <div class="plans">
+      <div class="ptabs">
+        <div class="ptab act">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v14H4z"/><path d="M4 9h16M9 9v10"/></svg>
+          Media Plan
+        </div>
+        <div class="ptab">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="7" r="2.4"/><circle cx="18" cy="7" r="2.4"/><circle cx="12" cy="17" r="2.4"/><path d="M7.7 8.4l3 7M16.3 8.4l-3 7"/></svg>
+          Data Plan
+        </div>
+        <span class="spacer"></span>
+        <div class="gtoggle"><span class="on">DOC</span><span>GRAPH</span></div>
+      </div>
+
+      <div class="plandoc">
+        <div class="eyebrow">Media Plan · Q3 2026</div>
+        <h1>Luminary Health — Telehealth Prospecting</h1>
+        <p class="lede">Three-partner activation across Meta, DV360, and Yahoo DSP. Audiences derived from health-portal events and CRM intake.</p>
+
+        <div class="struct">
+          <b>Structure:</b> 2 languages × 3 audiences × 3 partners. Naming convention
+          <span style="font-family:var(--mono);font-size:12px">{Partner}_{Lang}_{Audience}_{Objective}</span>.
+        </div>
+
+        <div class="plansec">
+          <div class="ph">META</div>
+          <div class="pline">Campaign: LMH_Q3_Prosp_EN_HighIntent <span class="k">· CPM · Jul 1–Sep 30</span></div>
+          <div class="pline ind">Ad Group: P_LMH_FB_EN_HighIntent <span class="k">— LAL 2%, HHI $100k+</span></div>
+          <div class="pline ind">Ad Group: P_LMH_FB_ES_HighIntent <span class="k">— Spanish, lang = es</span></div>
+        </div>
+
+        <div class="plansec">
+          <div class="ph">DV360 — Retargeting</div>
+          <div class="pline ind">P_LMH_DV360_Ret_300x250 <span class="k">— high-intent signal</span></div>
+          <div class="pline ind">P_LMH_DV360_Ret_728x90</div>
+          <div class="pline ind">P_LMH_DV360_Ret_160x600</div>
+        </div>
+
+        <div class="plansec">
+          <div class="ph">Yahoo DSP — Prospecting</div>
+          <div class="pline ind">P_LMH_Yahoo_Prosp_300x250 <span class="k">— Spanish audience</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Library — takeover</title>
+<style>
+  :root{
+    /* surfaces */
+    --paper:#F6F7F9;
+    --surface:#FFFFFF;
+    --surface-2:#FBFCFD;
+    --line:#E5E8EE;
+    --line-strong:#D6DAE3;
+    /* ink */
+    --ink:#1A1D24;
+    --muted:#6A7180;
+    --faint:#9AA1AE;
+    /* active */
+    --accent:#4856C8;
+    --accent-wash:#ECEEFB;
+    /* type-color (the only saturated color, carried by the documents themselves) */
+    --docx:#2B579A;
+    --xlsx:#1E7145;
+    --pptx:#C24F2C;
+    --pdf:#C8312B;
+    --md:#54607A;
+
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono","Roboto Mono",Menlo,monospace;
+    --ui:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{
+    font-family:var(--ui);
+    color:var(--ink);
+    background:var(--paper);
+    -webkit-font-smoothing:antialiased;
+    display:flex;align-items:center;justify-content:center;
+    padding:28px;
+  }
+
+  /* ---------- shell frame ---------- */
+  .app{
+    width:1280px;max-width:100%;height:760px;
+    background:var(--surface);
+    border:1px solid var(--line-strong);
+    border-radius:12px;
+    box-shadow:0 24px 60px -28px rgba(20,24,40,.30);
+    overflow:hidden;
+    display:flex;flex-direction:column;
+  }
+
+  /* top app bar */
+  .topbar{
+    height:46px;flex:none;
+    border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:12px;
+    padding:0 16px;
+    background:var(--surface-2);
+  }
+  .brand{display:flex;align-items:center;gap:9px;}
+  .brand .dot{width:16px;height:16px;border-radius:5px;
+    background:linear-gradient(135deg,var(--accent),#7C86E6);}
+  .brand b{font-size:13px;letter-spacing:-.01em;}
+  .topbar .proj{
+    font:11px/1 var(--mono);color:var(--muted);
+    padding:5px 9px;border:1px solid var(--line);border-radius:6px;
+    background:var(--surface);
+  }
+  .topbar .spacer{flex:1;}
+
+  /* main split: Context region (left) + Plans hint (right) */
+  .body{flex:1;display:flex;min-height:0;}
+
+  /* ---------- Context region in Library mode ---------- */
+  .context{
+    flex:1;min-width:0;display:flex;flex-direction:column;
+    border-right:1px solid var(--line);
+  }
+
+  /* library header */
+  .libhead{
+    flex:none;border-bottom:1px solid var(--line);
+    padding:10px 14px;display:flex;flex-direction:column;gap:9px;
+    background:var(--surface);
+  }
+  .libhead .row1{display:flex;align-items:center;gap:10px;}
+  .back{
+    display:inline-flex;align-items:center;gap:7px;
+    font-size:12.5px;color:var(--muted);
+    padding:5px 10px 5px 8px;border-radius:7px;
+    border:1px solid var(--line);background:var(--surface-2);
+    cursor:pointer;
+  }
+  .back:hover{color:var(--ink);border-color:var(--line-strong);}
+  .back svg{width:13px;height:13px;}
+  .libtitle{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;letter-spacing:-.01em;}
+  .libtitle svg{width:16px;height:16px;color:var(--accent);}
+  .row1 .spacer{flex:1;}
+  .search{
+    display:flex;align-items:center;gap:7px;
+    width:208px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;
+    background:var(--surface-2);color:var(--faint);font-size:12.5px;
+  }
+  .search svg{width:13px;height:13px;}
+  .viewtoggle{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+  .viewtoggle button{
+    border:0;background:var(--surface);padding:6px 9px;cursor:pointer;color:var(--faint);
+    display:flex;align-items:center;
+  }
+  .viewtoggle button svg{width:15px;height:15px;}
+  .viewtoggle button.on{background:var(--accent-wash);color:var(--accent);}
+  .viewtoggle button+button{border-left:1px solid var(--line);}
+  .add{
+    display:inline-flex;align-items:center;gap:6px;
+    background:var(--ink);color:#fff;border:0;border-radius:8px;
+    padding:7px 13px;font-size:12.5px;font-weight:500;cursor:pointer;letter-spacing:-.01em;
+  }
+  .add svg{width:13px;height:13px;}
+
+  /* breadcrumb */
+  .crumb{display:flex;align-items:center;gap:6px;font:11.5px/1 var(--mono);color:var(--muted);}
+  .crumb .sep{color:var(--faint);}
+  .crumb .here{color:var(--ink);}
+
+  /* library content: tree + grid */
+  .libbody{flex:1;display:flex;min-height:0;}
+
+  .tree{
+    width:208px;flex:none;border-right:1px solid var(--line);
+    background:var(--surface-2);
+    padding:12px 8px;overflow:auto;
+  }
+  .tree .grp{font:10px/1 var(--mono);letter-spacing:.08em;color:var(--faint);
+    text-transform:uppercase;padding:4px 8px 8px;}
+  .node{
+    display:flex;align-items:center;gap:7px;
+    padding:6px 8px;border-radius:7px;font-size:13px;cursor:pointer;color:var(--ink);
+    user-select:none;
+  }
+  .node:hover{background:#EFF1F5;}
+  .node .tw{width:12px;height:12px;flex:none;color:var(--faint);display:flex;align-items:center;justify-content:center;}
+  .node .tw.empty{visibility:hidden;}
+  .node .fi{width:15px;height:15px;flex:none;color:var(--muted);}
+  .node .lbl{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .node .ct{font:10.5px/1 var(--mono);color:var(--faint);}
+  .node.sel{background:var(--accent-wash);color:var(--accent);font-weight:500;}
+  .node.sel .fi{color:var(--accent);}
+  .node.sel .ct{color:var(--accent);opacity:.8;}
+  .node.child{margin-left:18px;}
+  .node.child.deep{margin-left:30px;}
+
+  /* grid */
+  .grid{
+    flex:1;min-width:0;overflow:auto;padding:20px 22px 26px;
+    display:grid;grid-template-columns:repeat(4,1fr);
+    gap:6px 10px;align-content:start;
+  }
+
+  .tile{
+    border-radius:10px;padding:14px 12px 12px;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:11px;
+    border:1px solid transparent;
+    transition:background .12s ease,border-color .12s ease;
+    animation:rise .42s cubic-bezier(.2,.7,.3,1) both;
+  }
+  .tile:hover{background:var(--surface-2);border-color:var(--line);}
+  .tile:hover .page{transform:translateY(-2px);}
+  .tile.sel{background:var(--accent-wash);border-color:#C8CEF4;}
+
+  /* the document preview — the signature element */
+  .page{
+    position:relative;width:118px;height:150px;
+    background:#fff;border:1px solid var(--line-strong);
+    border-radius:3px;
+    box-shadow:0 6px 14px -8px rgba(20,24,40,.34);
+    padding:14px 13px;overflow:hidden;
+    transition:transform .14s ease;
+  }
+  /* folded corner */
+  .page::after{
+    content:"";position:absolute;top:0;right:0;
+    border-width:0 13px 13px 0;border-style:solid;
+    border-color:#fff #F0F2F6;
+    filter:drop-shadow(-1px 1px 0 var(--line-strong));
+  }
+  /* type spine */
+  .page::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--tc);
+  }
+
+  /* generic content lines */
+  .ln{height:5px;border-radius:2px;background:#E9ECF1;margin-bottom:7px;}
+  .ln.h{height:7px;background:var(--tc);opacity:.85;width:60%;margin-bottom:10px;}
+  .ln.s{width:88%;}.ln.m{width:72%;}.ln.l{width:95%;}.ln.x{width:40%;}
+
+  /* spreadsheet sketch */
+  .sheet{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:11px;gap:2px;margin-top:2px;}
+  .sheet i{background:#EDF0F4;border-radius:1px;}
+  .sheet i.hd{background:var(--tc);opacity:.85;}
+
+  /* slide sketch */
+  .slide .bar{height:8px;width:66%;background:var(--tc);opacity:.85;border-radius:2px;margin-bottom:9px;}
+  .slide .blk{height:42px;background:#EDF0F4;border-radius:3px;margin-bottom:7px;}
+  .slide .duo{display:flex;gap:6px;}
+  .slide .duo span{flex:1;height:26px;background:#EDF0F4;border-radius:3px;}
+
+  /* md sketch */
+  .mdbody .hh{font:11px/1 var(--mono);color:var(--tc);margin-bottom:9px;}
+  .mdbody .ln{background:#E9ECF1;}
+
+  /* type chip */
+  .chip{
+    position:absolute;left:8px;bottom:8px;
+    font:9px/1 var(--mono);letter-spacing:.06em;color:#fff;
+    background:var(--tc);padding:3px 5px;border-radius:3px;
+  }
+
+  .meta{display:flex;flex-direction:column;align-items:center;gap:3px;max-width:130px;}
+  .fname{font-size:12px;letter-spacing:-.01em;text-align:center;line-height:1.25;
+    max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tile.sel .fname{color:var(--accent);font-weight:500;}
+  .sub{font:10px/1 var(--mono);color:var(--faint);}
+  .brief-tag{font:9px/1 var(--mono);letter-spacing:.04em;color:var(--accent);
+    background:#fff;border:1px solid #C8CEF4;border-radius:4px;padding:3px 6px;}
+
+  /* ---------- Plans hint (dimmed, proves takeover is scoped) ---------- */
+  .plans{
+    width:172px;flex:none;background:var(--surface-2);
+    display:flex;flex-direction:column;opacity:.45;pointer-events:none;
+    filter:saturate(.6);
+  }
+  .plans .ptabs{display:flex;border-bottom:1px solid var(--line);height:46px;}
+  .plans .ptab{flex:1;display:flex;align-items:center;justify-content:center;
+    font:10px/1 var(--mono);color:var(--muted);border-right:1px solid var(--line);}
+  .plans .ptab.act{color:var(--ink);box-shadow:inset 0 -2px 0 var(--accent);}
+  .plans .pbody{padding:16px 14px;display:flex;flex-direction:column;gap:11px;}
+  .plans .pln{height:6px;border-radius:3px;background:#E4E7EE;}
+  .plans .pln.t{width:55%;height:9px;}
+  .plans .pln.a{width:90%;}.plans .pln.b{width:78%;}.plans .pln.c{width:84%;}
+  .plans .pcard{margin-top:8px;border:1px solid var(--line);border-radius:8px;height:70px;background:#fff;}
+
+  @keyframes rise{from{opacity:0;transform:translateY(7px);}to{opacity:1;transform:none;}}
+  .tile:nth-child(1){animation-delay:.02s}.tile:nth-child(2){animation-delay:.05s}
+  .tile:nth-child(3){animation-delay:.08s}.tile:nth-child(4){animation-delay:.11s}
+  .tile:nth-child(5){animation-delay:.14s}.tile:nth-child(6){animation-delay:.17s}
+  .tile:nth-child(7){animation-delay:.20s}
+  @media (prefers-reduced-motion:reduce){.tile{animation:none;} .page,.tile,.back{transition:none;}}
+
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- top app bar -->
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span><b>Innervate</b></div>
+    <span class="proj">D28O_Campaign_Overview</span>
+    <span class="spacer"></span>
+  </div>
+
+  <div class="body">
+
+    <!-- ============ Context region, Library mode ============ -->
+    <div class="context">
+
+      <div class="libhead">
+        <div class="row1">
+          <button class="back" tabindex="0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+            Conversation
+          </button>
+          <span class="libtitle">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 5h16v14H4z"/><path d="M4 9h16"/><path d="M9 5v14"/></svg>
+            Library
+          </span>
+          <span class="spacer"></span>
+          <div class="search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+            Search files
+          </div>
+          <div class="viewtoggle">
+            <button class="on" title="Large icons">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            </button>
+            <button title="List">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+            </button>
+          </div>
+          <button class="add">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+            Add
+          </button>
+        </div>
+        <div class="crumb">
+          <span>Library</span><span class="sep">/</span>
+          <span>Local</span><span class="sep">/</span>
+          <span class="here">Media</span>
+        </div>
+      </div>
+
+      <div class="libbody">
+
+        <!-- folder tree -->
+        <nav class="tree">
+          <div class="grp">Folders</div>
+          <div class="node">
+            <span class="tw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></span>
+            <svg class="fi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v14H4z"/></svg>
+            <span class="lbl">Library</span>
+          </div>
+
+          <div class="node child">
+            <span class="tw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg></span>
+            <svg class="fi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7h6l2 2h10v9H3z"/></svg>
+            <span class="lbl">Global</span><span class="ct">9</span>
+          </div>
+
+          <div class="node child">
+            <span class="tw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></span>
+            <svg class="fi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7h6l2 2h10v9H3z"/></svg>
+            <span class="lbl">Local</span><span class="ct">11</span>
+          </div>
+          <div class="node child deep sel">
+            <span class="tw empty"></span>
+            <svg class="fi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7h6l2 2h10v9H3z"/></svg>
+            <span class="lbl">Media</span><span class="ct">7</span>
+          </div>
+          <div class="node child deep">
+            <span class="tw empty"></span>
+            <svg class="fi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7h6l2 2h10v9H3z"/></svg>
+            <span class="lbl">Data</span><span class="ct">4</span>
+          </div>
+        </nav>
+
+        <!-- large-icon grid -->
+        <section class="grid">
+
+          <!-- Campaign Brief — the one a human wrote -->
+          <div class="tile sel" style="--tc:var(--docx)">
+            <div class="page">
+              <div class="ln h"></div>
+              <div class="ln l"></div><div class="ln s"></div><div class="ln m"></div>
+              <div class="ln l" style="margin-top:11px"></div><div class="ln s"></div><div class="ln x"></div>
+              <span class="chip">DOCX</span>
+            </div>
+            <div class="meta">
+              <span class="fname">LMH_Q3_Campaign_Brief</span>
+              <span class="brief-tag">CAMPAIGN BRIEF</span>
+            </div>
+          </div>
+
+          <!-- Media plan -->
+          <div class="tile" style="--tc:var(--xlsx)">
+            <div class="page">
+              <div class="sheet">
+                <i class="hd"></i><i class="hd"></i><i class="hd"></i><i class="hd"></i>
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                <i></i><i></i><i></i><i></i>
+              </div>
+              <span class="chip">XLSX</span>
+            </div>
+            <div class="meta"><span class="fname">LMH_Q3_Media_Plan</span><span class="sub">edited 2d ago</span></div>
+          </div>
+
+          <!-- Channel deck -->
+          <div class="tile" style="--tc:var(--pptx)">
+            <div class="page">
+              <div class="slide">
+                <div class="bar"></div>
+                <div class="blk"></div>
+                <div class="duo"><span></span><span></span></div>
+              </div>
+              <span class="chip">PPTX</span>
+            </div>
+            <div class="meta"><span class="fname">Channel_Plan_Q3</span><span class="sub">edited 5d ago</span></div>
+          </div>
+
+          <!-- Creative specs -->
+          <div class="tile" style="--tc:var(--pdf)">
+            <div class="page">
+              <div class="ln h"></div>
+              <div class="ln l"></div><div class="ln l"></div><div class="ln s"></div>
+              <div class="ln m"></div><div class="ln l"></div><div class="ln s"></div>
+              <div class="ln m"></div><div class="ln x"></div>
+              <span class="chip">PDF</span>
+            </div>
+            <div class="meta"><span class="fname">Creative_Specs</span><span class="sub">1.2 MB</span></div>
+          </div>
+
+          <!-- Strategy memo -->
+          <div class="tile" style="--tc:var(--docx)">
+            <div class="page">
+              <div class="ln h"></div>
+              <div class="ln l"></div><div class="ln s"></div><div class="ln m"></div>
+              <div class="ln l" style="margin-top:11px"></div><div class="ln m"></div>
+              <span class="chip">DOCX</span>
+            </div>
+            <div class="meta"><span class="fname">Strategy_Memo</span><span class="sub">edited 1w ago</span></div>
+          </div>
+
+          <!-- Flighting -->
+          <div class="tile" style="--tc:var(--xlsx)">
+            <div class="page">
+              <div class="sheet">
+                <i class="hd"></i><i class="hd"></i><i class="hd"></i><i class="hd"></i>
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                <i></i><i></i><i></i><i></i>
+              </div>
+              <span class="chip">XLSX</span>
+            </div>
+            <div class="meta"><span class="fname">Q3_Flighting</span><span class="sub">edited 2w ago</span></div>
+          </div>
+
+          <!-- Audience notes -->
+          <div class="tile" style="--tc:var(--md)">
+            <div class="page">
+              <div class="mdbody">
+                <div class="hh"># Audiences</div>
+                <div class="ln l"></div><div class="ln s"></div>
+                <div class="ln m"></div><div class="ln l"></div><div class="ln x"></div>
+              </div>
+              <span class="chip">MD</span>
+            </div>
+            <div class="meta"><span class="fname">Audience_Notes</span><span class="sub">edited 3w ago</span></div>
+          </div>
+
+        </section>
+      </div>
+    </div>
+
+    <!-- ============ Plans region — dimmed, untouched by the takeover ============ -->
+    <aside class="plans">
+      <div class="ptabs">
+        <div class="ptab act">Media</div>
+        <div class="ptab">Data</div>
+      </div>
+      <div class="pbody">
+        <div class="pln t"></div>
+        <div class="pln a"></div><div class="pln b"></div><div class="pln c"></div>
+        <div class="pcard"></div>
+        <div class="pln a"></div><div class="pln b"></div>
+        <div class="pcard"></div>
+      </div>
+    </aside>
+
+  </div>
+</div>
+</body>
+</html>

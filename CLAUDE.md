@@ -66,6 +66,29 @@ The `contextSeen.chat` field in every reasoning log entry records exactly what u
 
 ---
 
+## Local dev server (Vite)
+
+The client source files are all `.tsx` / `.ts`. Vite imports use `.js` extensions in the source (e.g. `import { useStore } from "../store.js"`) — Vite resolves these to the `.ts`/`.tsx` counterparts automatically.
+
+**Known failure mode: stale `.js` files in `src/`**
+If compiled `.js` files ever appear inside `apps/client/src/` (e.g. from a runaway `tsc` invocation without `--outDir`), Vite will resolve them in preference to the `.tsx` sources. Symptoms: UI shows a stale version number and code changes have no effect even after hard refresh.
+
+Fix:
+```
+find apps/client/src -name "*.js" -not -path "*/node_modules/*" -delete
+```
+Then kill the Vite process, delete `apps/client/node_modules/.vite`, and restart Vite. Hard-refresh the browser once it's back up.
+
+**Restarting Vite** (I manage the dev server — user cannot restart it directly):
+1. Kill all node processes whose command line matches `vite`
+2. Delete `apps/client/node_modules/.vite` (module/deps cache)
+3. Start: `node C:\code\copper\demo.v02\node_modules\vite\bin\vite.js` with CWD `apps/client`
+4. Wait ~5s, verify port 5173 is LISTENING before telling user to refresh
+
+**Never deploy to Railway unless the user explicitly asks.** "Push" in this project means `git push` only.
+
+---
+
 ## Open decisions (flagged, not resolved)
 
 - `TODO(human): Import may be canonical if it is named & kept across source changes — see schema doc B1.`
