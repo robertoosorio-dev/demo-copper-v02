@@ -2,10 +2,17 @@ import { callAnthropic } from "./anthropic.js";
 import { callOpenAI } from "./openai.js";
 import { callGoogle } from "./google.js";
 
+export interface LibraryContentBlock {
+  name: string;
+  mimeType: string;
+  base64: string;
+}
+
 export interface LLMRequest {
   llmModel: string;
   systemPrompt: string;
   userMessage: string;
+  libraryContent?: LibraryContentBlock[];
 }
 
 export interface ReasoningBlock {

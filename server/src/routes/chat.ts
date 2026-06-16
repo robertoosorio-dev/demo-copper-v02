@@ -2,13 +2,21 @@ import { Router } from "express";
 import { GCSStorageProvider } from "../storage/gcs.js";
 import type { ProjectStore } from "../store.js";
 import type { Exchange, Intent, LibraryFile, ReasoningLogEntry, Version } from "@copper/contracts";
+import type { LibraryContentBlock } from "../llm/router.js";
 import { routeLLM } from "../llm/router.js";
 import { buildSystemPrompt } from "../llm/systemPrompt.js";
 import { applyOps } from "../llm/applyOps.js";
 import { detectWizardIntent, getWizardShape } from "../wizardStandin.js";
 
-const TEXT_TYPES = new Set(["md", "txt", "csv", "json"]);
-const FILE_CONTENT_LIMIT = 4000;
+// MIME types supported as Claude document blocks
+const CLAUDE_DOC_MIMES: Record<string, string> = {
+  pdf:  "application/pdf",
+  md:   "text/markdown",
+  txt:  "text/plain",
+  csv:  "text/csv",
+  json: "text/plain",
+  html: "text/html",
+};
 
 let _storage: GCSStorageProvider | null = null;
 function getStorage(): GCSStorageProvider | null {
@@ -17,33 +25,35 @@ function getStorage(): GCSStorageProvider | null {
   return _storage;
 }
 
-async function buildLibrarySection(files: LibraryFile[]): Promise<string> {
-  if (files.length === 0) return "";
+async function loadLibraryContent(files: LibraryFile[]): Promise<{ blocks: LibraryContentBlock[]; metadataOnly: LibraryFile[] }> {
   const store = getStorage();
-  const parts: string[] = [];
+  const blocks: LibraryContentBlock[] = [];
+  const metadataOnly: LibraryFile[] = [];
 
   for (const f of files) {
     const ext = (f.type || f.name.split(".").pop() || "").toLowerCase();
-    const meta = `**${f.name}** (${ext.toUpperCase()}, ${f.tier})`;
+    const mime = CLAUDE_DOC_MIMES[ext];
 
-    if (!f.contentPath || !TEXT_TYPES.has(ext) || !store) {
-      parts.push(`${meta}\n_Content not available as text — metadata only._`);
+    if (!f.contentPath || !store) {
+      metadataOnly.push(f);
+      continue;
+    }
+
+    if (!mime) {
+      // Binary type not supported as a document block — metadata only
+      metadataOnly.push(f);
       continue;
     }
 
     try {
       const buf = await store.readBinary(f.contentPath);
-      let text = buf.toString("utf-8");
-      if (text.length > FILE_CONTENT_LIMIT) {
-        text = text.slice(0, FILE_CONTENT_LIMIT) + "\n… [truncated]";
-      }
-      parts.push(`${meta}\n\`\`\`\n${text}\n\`\`\``);
+      blocks.push({ name: f.name, mimeType: mime, base64: buf.toString("base64") });
     } catch {
-      parts.push(`${meta}\n_Content could not be read._`);
+      metadataOnly.push(f);
     }
   }
 
-  return parts.join("\n\n");
+  return { blocks, metadataOnly };
 }
 
 export function makeChatRouter(store: ProjectStore, getKB: () => string = () => ""): Router {
@@ -87,7 +97,20 @@ export function makeChatRouter(store: ProjectStore, getKB: () => string = () => 
     const version = clientVersion ?? await store.loadLatestVersion(projectId);
     if (!version) return res.status(404).json({ error: "Project not found" });
 
-    const librarySection = await buildLibrarySection(libraryContext);
+    // Load file content from GCS — supported types as document blocks, rest as metadata
+    const { blocks: libraryContent, metadataOnly } = libraryContext.length
+      ? await loadLibraryContent(libraryContext)
+      : { blocks: [], metadataOnly: [] };
+
+    // Metadata-only mention in system prompt (names of files whose content goes in blocks, plus unsupported binaries)
+    const libMeta = [
+      ...libraryContent.map((b) => `${b.name} [content attached]`),
+      ...metadataOnly.map((f) => `${f.name} [binary — content not extractable as text]`),
+    ];
+    const librarySection = libMeta.length
+      ? libMeta.map((l) => `- ${l}`).join("\n")
+      : "";
+
     const systemPrompt = buildSystemPrompt(version, getKB(), librarySection);
 
     // Build user message with recent conversation context
@@ -105,7 +128,7 @@ export function makeChatRouter(store: ProjectStore, getKB: () => string = () => 
     const startedAt = new Date().toISOString();
 
     try {
-      const result = await routeLLM({ llmModel, systemPrompt, userMessage });
+      const result = await routeLLM({ llmModel, systemPrompt, userMessage, libraryContent });
 
       llmReply = result.reply ?? result.summary ?? "Done.";
       ops = ((result.ops ?? []) as Intent[]).filter(
@@ -154,7 +177,12 @@ export function makeChatRouter(store: ProjectStore, getKB: () => string = () => 
           history: exchanges.slice(-6).map((e) => ({ role: e.role, content: e.text })),
         },
         ...(libraryContext.length > 0 ? {
-          libraryFiles: libraryContext.map((f) => ({ id: f.id, name: f.name, type: f.type, hasContent: !!f.contentPath })),
+          libraryFiles: libraryContext.map((f) => ({
+            id: f.id,
+            name: f.name,
+            type: f.type,
+            asDocBlock: libraryContent.some((b) => b.name === f.name),
+          })),
         } : {}),
       },
     };
@@ -174,7 +202,7 @@ export function makeChatRouter(store: ProjectStore, getKB: () => string = () => 
     };
 
     if (libraryContext.length > 0) {
-      console.log(`[chat] library ctx: ${libraryContext.map((f) => f.name).join(", ")}`);
+      console.log(`[chat] library: ${libraryContent.length} doc blocks + ${metadataOnly.length} metadata-only`);
     }
     console.log(
       `[chat] ✅ ${projectId} v${version.version}→v${newVersion.version} | ops:${ops.length} versioned:${versioned}`,

@@ -608,14 +608,14 @@ html, body {
 .mg-ck.on { background: var(--blue-txt); border-color: var(--blue-txt); }
 .mg-xb { width: 20px; height: 20px; border-radius: 3px; border: 1px solid var(--b2); background: var(--bg); color: var(--txt3); cursor: pointer; font-size: 9px; display: inline-flex; align-items: center; justify-content: center; position: relative; }
 .mg-xb:hover, .mg-xb.on { background: var(--blue-bg); border-color: var(--blue-bd); color: var(--blue-txt); }
-.mg-xmenu { position: absolute; right: 0; top: 23px; background: var(--bg); border: 1px solid var(--b2); border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.12); z-index: 100; min-width: 150px; padding: 3px; }
+.mg-xmenu { position: absolute; left: 0; top: 23px; background: var(--bg); border: 1px solid var(--b2); border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,.12); z-index: 200; min-width: 150px; padding: 3px; }
 .mg-xopt { display: flex; align-items: center; gap: 7px; padding: 5px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; color: var(--txt2); white-space: nowrap; }
 .mg-xopt:hover, .mg-xopt.on { background: var(--blue-bg); color: var(--blue-txt); }
 .mg-xdot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
 /* ── VIEW 1 — FULL GRID ── */
 .mg-v1 { padding: 8px 10px; overflow-y: auto; flex: 1; min-height: 0; }
-.mg-fg-wrap { margin-bottom: 5px; border: 1px solid var(--b); border-radius: 6px; overflow: hidden; }
+.mg-fg-wrap { margin-bottom: 5px; border: 1px solid var(--b); border-radius: 6px; overflow: visible; }
 .mg-fg-hdr { display: flex; align-items: center; gap: 7px; padding: 6px 10px; background: var(--bg2); border-bottom: 1px solid var(--b); cursor: pointer; user-select: none; }
 .mg-fg-hdr:hover { background: var(--bg3); }
 .mg-fg-chev { font-size: 10px; color: var(--txt3); width: 12px; }
@@ -627,7 +627,7 @@ html, body {
 .mg-v2-canvas { position: relative; }
 .mg-v2-svg { position: absolute; top: 0; left: 0; pointer-events: none; }
 .mg-v2-nodes { position: absolute; top: 0; left: 0; }
-.mg-gg-node { position: absolute; background: var(--bg); border: 1.5px solid var(--b); border-radius: 7px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+.mg-gg-node { position: absolute; background: var(--bg); border: 1.5px solid var(--b); border-radius: 7px; box-shadow: 0 1px 4px rgba(0,0,0,.06); overflow: visible; }
 .mg-gg-nhdr { display: flex; align-items: center; gap: 7px; padding: 6px 10px; background: var(--bg2); border-bottom: 1px solid var(--b); border-radius: 6px 6px 0 0; }
 .mg-gg-ntitle { font-size: 11px; font-weight: 600; color: var(--txt); flex: 1; font-family: var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
 .mg-gg-count { font-size: 10px; color: var(--txt3); }

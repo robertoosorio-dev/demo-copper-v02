@@ -7,6 +7,22 @@ const NH = 62;
 const CGAP = 195;
 const ROW_GAP = 8;
 
+const POSITIONS_KEY = "copper-gn-positions";
+
+function loadPositions(): Record<string, { x: number; y: number }> {
+  try {
+    return JSON.parse(localStorage.getItem(POSITIONS_KEY) ?? "{}");
+  } catch {
+    return {};
+  }
+}
+
+function savePositions(pos: Record<string, { x: number; y: number }>) {
+  try {
+    localStorage.setItem(POSITIONS_KEY, JSON.stringify(pos));
+  } catch {}
+}
+
 interface NodePos { id: string; type: string; name?: string; status?: string; size?: string; col: number; x: number; y: number; [k: string]: unknown }
 
 function computeLayout(entities: MediaPlanModel["entities"], organizeBy: string) {
@@ -94,7 +110,7 @@ function usePanZoom(containerRef: React.RefObject<HTMLDivElement | null>) {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return tx;
+  return { tx, txRef };
 }
 
 interface Props {
@@ -107,24 +123,71 @@ interface Props {
 export default function ViewColumnGraph({ model, organizeBy, selection, onSelectionChange }: Props) {
   const { entities, connections } = model;
   const containerRef = useRef<HTMLDivElement>(null);
-  const tx = usePanZoom(containerRef);
+  const { tx, txRef } = usePanZoom(containerRef);
 
   const layout = useMemo(() => computeLayout(entities, organizeBy), [entities, organizeBy]);
   const { nodes, orderedTypes, totalW, totalH, fenceX } = layout;
 
+  // Per-node position overrides (drag moves)
+  const [posOverrides, setPosOverrides] = useState<Record<string, { x: number; y: number }>>(() => loadPositions());
+  const draggingNode = useRef<{ id: string; sx: number; sy: number; ox: number; oy: number } | null>(null);
+
+  // Apply overrides to layout nodes
+  const effectiveNodes = useMemo(() =>
+    nodes.map((n) => posOverrides[n.id] ? { ...n, ...posOverrides[n.id] } : n),
+    [nodes, posOverrides],
+  );
+
   const nodeMap = useMemo(() => {
     const m: Record<string, NodePos> = {};
-    nodes.forEach((n) => { m[n.id] = n; });
+    effectiveNodes.forEach((n) => { m[n.id] = n; });
     return m;
-  }, [nodes]);
+  }, [effectiveNodes]);
+
+  // Node drag handlers
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!draggingNode.current) return;
+      const { id, sx, sy, ox, oy } = draggingNode.current;
+      const scale = txRef.current.scale;
+      const dx = (e.clientX - sx) / scale;
+      const dy = (e.clientY - sy) / scale;
+      setPosOverrides((prev) => ({ ...prev, [id]: { x: ox + dx, y: oy + dy } }));
+    };
+    const onUp = () => {
+      if (draggingNode.current) {
+        draggingNode.current = null;
+        setPosOverrides((prev) => { savePositions(prev); return prev; });
+      }
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleNodeMouseDown = (e: React.MouseEvent, id: string, x: number, y: number) => {
+    e.stopPropagation();
+    draggingNode.current = { id, sx: e.clientX, sy: e.clientY, ox: x, oy: y };
+  };
 
   const handleNodeClick = (e: React.MouseEvent, id: string) => {
+    // Only register as a click if we didn't drag
+    if (draggingNode.current) return;
     e.stopPropagation();
     onSelectionChange(selection.includes(id) ? selection.filter((i) => i !== id) : [...selection, id]);
   };
 
   const rootColIdx = orderedTypes.indexOf(organizeBy);
   const rootColX   = rootColIdx >= 0 ? rootColIdx * CGAP + 16 : null;
+
+  // Canvas size accounts for dragged nodes
+  const allX = effectiveNodes.map((n) => n.x + NW);
+  const allY = effectiveNodes.map((n) => n.y + NH);
+  const dynW = allX.length ? Math.max(...allX) + 40 : totalW;
+  const dynH = allY.length ? Math.max(...allY) + 40 : totalH;
 
   return (
     <div className="mg-v3" ref={containerRef} onClick={() => onSelectionChange([])}>
@@ -133,11 +196,11 @@ export default function ViewColumnGraph({ model, organizeBy, selection, onSelect
           transform: `translate(${tx.x}px,${tx.y}px) scale(${tx.scale})`,
           transformOrigin: "0 0",
           position: "relative",
-          width: totalW,
-          height: totalH,
+          width: dynW,
+          height: dynH,
         }}
       >
-        <svg style={{ position: "absolute", inset: 0, width: totalW, height: totalH, overflow: "visible", pointerEvents: "none" }}>
+        <svg style={{ position: "absolute", inset: 0, width: dynW, height: dynH, overflow: "visible", pointerEvents: "none" }}>
           <defs>
             <marker id="v3-arrow" viewBox="0 0 10 10" refX={8} refY={5} markerWidth={4} markerHeight={4} orient="auto-start-reverse">
               <path d="M2 2L8 5L2 8" fill="none" stroke="#c8c5ba" strokeWidth={1.5} strokeLinecap="round" />
@@ -145,7 +208,7 @@ export default function ViewColumnGraph({ model, organizeBy, selection, onSelect
           </defs>
 
           {rootColX !== null && (
-            <rect x={rootColX - 4} y={16} width={NW + 8} height={totalH - 20} rx={6} fill={(TYPE_META[organizeBy] ?? TYPE_META.MediaPartner).bg} opacity={0.45} />
+            <rect x={rootColX - 4} y={16} width={NW + 8} height={dynH - 20} rx={6} fill={(TYPE_META[organizeBy] ?? TYPE_META.MediaPartner).bg} opacity={0.45} />
           )}
 
           {orderedTypes.map((t, i) => {
@@ -160,8 +223,8 @@ export default function ViewColumnGraph({ model, organizeBy, selection, onSelect
 
           {fenceX !== null && (
             <g>
-              <line x1={fenceX} y1={16} x2={fenceX} y2={totalH - 10} stroke="var(--b2)" strokeWidth={1} strokeDasharray="4 3" />
-              <text x={fenceX} y={totalH / 2} textAnchor="middle" fontSize={8} fill="var(--txt3)" fontWeight={600} letterSpacing=".8px" style={{ textTransform: "uppercase", fontFamily: "var(--font)", writingMode: "vertical-rl" }}>
+              <line x1={fenceX} y1={16} x2={fenceX} y2={dynH - 10} stroke="var(--b2)" strokeWidth={1} strokeDasharray="4 3" />
+              <text x={fenceX} y={dynH / 2} textAnchor="middle" fontSize={8} fill="var(--txt3)" fontWeight={600} letterSpacing=".8px" style={{ textTransform: "uppercase", fontFamily: "var(--font)", writingMode: "vertical-rl" }}>
                 fence
               </text>
             </g>
@@ -183,7 +246,7 @@ export default function ViewColumnGraph({ model, organizeBy, selection, onSelect
           })}
         </svg>
 
-        {nodes.map((n) => {
+        {effectiveNodes.map((n) => {
           const tm = TYPE_META[n.type] ?? TYPE_META.MediaPartner;
           const sm = statusBadgeStyle(n.status ?? "planned");
           const isSel = selection.includes(n.id);
@@ -192,7 +255,8 @@ export default function ViewColumnGraph({ model, organizeBy, selection, onSelect
             <div
               key={n.id}
               className={`gn-card${isSel ? " sel" : ""}${isExternal ? " external" : ""}`}
-              style={{ position: "absolute", left: n.x, top: n.y, width: NW, height: NH, borderLeftColor: tm.c }}
+              style={{ position: "absolute", left: n.x, top: n.y, width: NW, height: NH, borderLeftColor: tm.c, cursor: "grab" }}
+              onMouseDown={(e) => handleNodeMouseDown(e, n.id, n.x, n.y)}
               onClick={(e) => handleNodeClick(e, n.id)}
               title={n.name}
             >

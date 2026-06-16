@@ -2,13 +2,18 @@ import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from
 import type { MediaPlanModel, AnyEntity } from "@copper/contracts";
 import { TYPE_META, COLS, getRelated, getRootRows, statusBadgeStyle, typeBadgeStyle } from "./schema.js";
 
-const GG_NW   = 470;
 const HDR_H   = 36;
 const THEAD_H = 26;
 const ROW_H   = 27;
 const INDENT_X = 60;
 const GAP_Y    = 16;
 const MIN_Y    = 18;
+const COL_PADDING = 74; // expand(32) + checkbox(24) + side padding(18)
+
+function nodeWidth(type: string): number {
+  const cols = COLS[type] ?? [];
+  return Math.max(380, COL_PADDING + cols.reduce((s, c) => s + c.w, 0));
+}
 
 type RowData = Record<string, unknown> & { id: string };
 
@@ -42,9 +47,10 @@ function GGNode({ node, entities, connections, selection, onSelectionChange, onE
   const tm = TYPE_META[node.type] ?? TYPE_META.MediaPartner;
   const cols = COLS[node.type] ?? [];
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const nw = nodeWidth(node.type);
 
   return (
-    <div className="mg-gg-node" style={{ left: node.x, top: node.y, width: GG_NW }} data-nid={node.id}>
+    <div className="mg-gg-node" style={{ left: node.x, top: node.y, width: nw }} data-nid={node.id}>
       <div className="mg-gg-nhdr" style={{ borderLeft: `3px solid ${tm.c}` }}>
         <span className="mg-type-tag" style={typeBadgeStyle(node.type)}>{tm.label}</span>
         <span className="mg-gg-ntitle" title={node.title}>{node.title}</span>
@@ -53,84 +59,84 @@ function GGNode({ node, entities, connections, selection, onSelectionChange, onE
           <button className="mg-gg-close" onClick={() => onClose(node.id)}>✕</button>
         )}
       </div>
-      <div style={{ overflowX: "auto" }}>
-        <table className="mg-table">
-          <thead>
-            <tr>
-              <th style={{ width: 22 }} />
-              {cols.map((c) => <th key={c.k} style={{ minWidth: c.w }}>{c.l}</th>)}
-              <th style={{ width: 30 }} />
-            </tr>
-          </thead>
-          <tbody>
-            {node.rows.map((row) => {
-              const isSel = selection.includes(row.id);
-              const related = getRelated(row.id, entities as Record<string, { type: string }>, connections);
-              const available = Object.keys(related).filter((t) => t !== node.type);
-              return (
-                <tr
-                  key={row.id}
-                  className={isSel ? "mg-row sel" : "mg-row"}
-                  onClick={() =>
-                    onSelectionChange(isSel ? selection.filter((i) => i !== row.id) : [...selection, row.id])
-                  }
-                >
-                  <td style={{ padding: "4px 4px 4px 8px" }}>
-                    <div className={`mg-ck${isSel ? " on" : ""}`} onClick={(e) => e.stopPropagation()} />
-                  </td>
-                  {cols.map((c) => (
-                    <td key={c.k} className={c.k === "name" ? "mg-cell-name" : ""}>
-                      {c.k === "status" ? (
-                        <span className="mg-badge" style={statusBadgeStyle((row.status as string) ?? "planned")}>
-                          {(row.status as string) ?? "planned"}
-                        </span>
-                      ) : (
-                        <span>{(row[c.k] as string) ?? "—"}</span>
+      <table className="mg-table">
+        <thead>
+          <tr>
+            <th style={{ width: 32 }} />
+            <th style={{ width: 22 }} />
+            {cols.map((c) => <th key={c.k} style={{ minWidth: c.w }}>{c.l}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {node.rows.map((row) => {
+            const isSel = selection.includes(row.id);
+            const related = getRelated(row.id, entities as Record<string, { type: string }>, connections);
+            const available = Object.keys(related).filter((t) => t !== node.type);
+            return (
+              <tr
+                key={row.id}
+                className={isSel ? "mg-row sel" : "mg-row"}
+                onClick={() =>
+                  onSelectionChange(isSel ? selection.filter((i) => i !== row.id) : [...selection, row.id])
+                }
+              >
+                {/* Expand button — LEFT column */}
+                <td style={{ padding: "4px 4px 4px 8px" }}>
+                  {available.length > 0 && (
+                    <div style={{ position: "relative", display: "inline-block" }}>
+                      <button
+                        className="mg-xb"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenu(openMenu === row.id ? null : row.id);
+                        }}
+                      >
+                        ▾
+                      </button>
+                      {openMenu === row.id && (
+                        <div className="mg-xmenu">
+                          {available.map((t) => {
+                            const tm2 = TYPE_META[t] ?? TYPE_META.MediaPartner;
+                            return (
+                              <div
+                                key={t}
+                                className="mg-xopt"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenu(null);
+                                  onExpand(node.id, node.type, row, t, related[t] ?? []);
+                                }}
+                              >
+                                <span className="mg-xdot" style={{ background: tm2.c }} />
+                                {tm2.label} ({(related[t] ?? []).length})
+                              </div>
+                            );
+                          })}
+                        </div>
                       )}
-                    </td>
-                  ))}
-                  <td style={{ padding: "4px 5px", textAlign: "right" }}>
-                    {available.length > 0 && (
-                      <div style={{ position: "relative", display: "inline-block" }}>
-                        <button
-                          className="mg-xb"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenMenu(openMenu === row.id ? null : row.id);
-                          }}
-                        >
-                          ▾
-                        </button>
-                        {openMenu === row.id && (
-                          <div className="mg-xmenu">
-                            {available.map((t) => {
-                              const tm2 = TYPE_META[t] ?? TYPE_META.MediaPartner;
-                              return (
-                                <div
-                                  key={t}
-                                  className="mg-xopt"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenMenu(null);
-                                    onExpand(node.id, node.type, row, t, related[t] ?? []);
-                                  }}
-                                >
-                                  <span className="mg-xdot" style={{ background: tm2.c }} />
-                                  {tm2.label} ({(related[t] ?? []).length})
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
+                    </div>
+                  )}
+                </td>
+                {/* Checkbox */}
+                <td style={{ padding: "4px 4px" }}>
+                  <div className={`mg-ck${isSel ? " on" : ""}`} onClick={(e) => e.stopPropagation()} />
+                </td>
+                {cols.map((c) => (
+                  <td key={c.k} className={c.k === "name" ? "mg-cell-name" : ""}>
+                    {c.k === "status" ? (
+                      <span className="mg-badge" style={statusBadgeStyle((row.status as string) ?? "planned")}>
+                        {(row.status as string) ?? "planned"}
+                      </span>
+                    ) : (
+                      <span>{(row[c.k] as string) ?? "—"}</span>
                     )}
                   </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                ))}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -152,7 +158,6 @@ export default function ViewGraphGrid({ model, organizeBy, selection, onSelectio
   useLayoutEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    // Read real size synchronously before first paint (no flicker)
     const r = el.getBoundingClientRect();
     if (r.width > 0) setContainerSize({ w: Math.round(r.width), h: Math.round(r.height) });
     const ro = new ResizeObserver((entries) => {
@@ -201,7 +206,8 @@ export default function ViewGraphGrid({ model, organizeBy, selection, onSelectio
         const tm2 = TYPE_META[childType] ?? TYPE_META.MediaPartner;
         const rowIdx = parNode.rows.findIndex((r) => r.id === row.id);
         const depth = (parNode.depth ?? 0) + 1;
-        const x = parNode.x + GG_NW + INDENT_X;
+        const parW = nodeWidth(parNode.type);
+        const x = parNode.x + parW + INDENT_X;
         const rowApproxY = rowAnchorY(parNode, rowIdx) - HDR_H / 2;
 
         const sameCol = prev.filter((n) => Math.abs(n.x - x) < 30);
@@ -233,7 +239,7 @@ export default function ViewGraphGrid({ model, organizeBy, selection, onSelectio
     });
   }, []);
 
-  const contentW = nodes.length ? Math.max(...nodes.map((n) => n.x + GG_NW)) + 60 : 600;
+  const contentW = nodes.length ? Math.max(...nodes.map((n) => n.x + nodeWidth(n.type))) + 60 : 600;
   const contentH = nodes.length ? Math.max(...nodes.map((n) => n.y + HDR_H + THEAD_H + n.rows.length * ROW_H)) + 60 : 400;
   const canvasW = Math.max(contentW, containerSize.w);
   const canvasH = Math.max(contentH, containerSize.h);
@@ -252,7 +258,7 @@ export default function ViewGraphGrid({ model, organizeBy, selection, onSelectio
             const par = nodes.find((p) => p.id === n.parentId);
             if (!par) return null;
             const rowIdx = par.rows.findIndex((r) => r.id === n.parentRowId);
-            const x1 = par.x + GG_NW;
+            const x1 = par.x + nodeWidth(par.type);
             const y1 = rowAnchorY(par, rowIdx);
             const x2 = n.x;
             const y2 = n.y + HDR_H / 2;

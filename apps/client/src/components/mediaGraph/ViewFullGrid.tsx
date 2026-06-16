@@ -49,107 +49,107 @@ function FGTable({ type, rows, entities, connections, selection, onSelectionChan
   };
 
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table className="mg-table">
-        <thead>
-          <tr>
-            <th style={{ width: 24 }} />
-            {cols.map((c) => <th key={c.k} style={{ minWidth: c.w }}>{c.l}</th>)}
-            <th style={{ width: 32 }} />
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const isSel = selection.includes(row.id);
-            const related = getRelated(row.id, entities as Record<string, { type: string }>, connections);
-            const available = Object.keys(related).filter((t) => t !== type);
-            const rowExpanded = expanded[row.id] ?? {};
+    <table className="mg-table">
+      <thead>
+        <tr>
+          <th style={{ width: 32 }} />
+          <th style={{ width: 24 }} />
+          {cols.map((c) => <th key={c.k} style={{ minWidth: c.w }}>{c.l}</th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => {
+          const isSel = selection.includes(row.id);
+          const related = getRelated(row.id, entities as Record<string, { type: string }>, connections);
+          const available = Object.keys(related).filter((t) => t !== type);
+          const rowExpanded = expanded[row.id] ?? {};
 
-            return (
-              <React.Fragment key={row.id}>
-                <tr
-                  className={isSel ? "mg-row sel" : "mg-row"}
-                  onClick={() =>
-                    onSelectionChange(isSel ? selection.filter((i) => i !== row.id) : [...selection, row.id])
-                  }
-                >
-                  <td style={{ padding: "4px 4px 4px 8px" }}>
-                    <div className={`mg-ck${isSel ? " on" : ""}`} onClick={(e) => e.stopPropagation()} />
-                  </td>
-                  {cols.map((c) => (
-                    <td key={c.k} className={c.k === "name" ? "mg-cell-name" : ""}>
-                      <CellValue col={c} row={row} />
-                    </td>
-                  ))}
-                  <td style={{ padding: "4px 5px", textAlign: "right" }}>
-                    {available.length > 0 && (
-                      <div style={{ position: "relative", display: "inline-block" }}>
-                        <button
-                          className={`mg-xb${Object.keys(rowExpanded).length ? " on" : ""}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenMenu(openMenu === row.id ? null : row.id);
-                          }}
-                        >
-                          ▾
-                        </button>
-                        {openMenu === row.id && (
-                          <div className="mg-xmenu">
-                            {available.map((t) => {
-                              const tm = TYPE_META[t] ?? TYPE_META.MediaPartner;
-                              return (
-                                <div
-                                  key={t}
-                                  className={`mg-xopt${rowExpanded[t] ? " on" : ""}`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleChild(row.id, t);
-                                  }}
-                                >
-                                  <span className="mg-xdot" style={{ background: tm.c }} />
-                                  {tm.label} ({(related[t] ?? []).length})
-                                  {rowExpanded[t] && " ✓"}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-                {Object.keys(rowExpanded).map((childType) => {
-                  if (!rowExpanded[childType]) return null;
-                  const childIds = related[childType] ?? [];
-                  if (!childIds.length) return null;
-                  const childRows = childIds.map((id) => ({ id, ...(entities[id] as object) })) as RowData[];
-                  const tm2 = TYPE_META[childType] ?? TYPE_META.MediaPartner;
-                  return (
-                    <tr key={`child-${row.id}-${childType}`}>
-                      <td colSpan={cols.length + 2} style={{ padding: "0 0 4px 18px" }}>
-                        <div style={{ borderLeft: `2px solid ${tm2.bd}`, marginTop: 3, marginBottom: 3 }}>
-                          <div style={{ padding: "2px 8px", fontSize: 9, fontWeight: 600, letterSpacing: ".6px", textTransform: "uppercase", color: tm2.c, background: tm2.bg }}>
-                            {tm2.label}
-                          </div>
-                          <FGTable
-                            type={childType}
-                            rows={childRows}
-                            entities={entities}
-                            connections={connections}
-                            selection={selection}
-                            onSelectionChange={onSelectionChange}
-                          />
+          return (
+            <React.Fragment key={row.id}>
+              <tr
+                className={isSel ? "mg-row sel" : "mg-row"}
+                onClick={() =>
+                  onSelectionChange(isSel ? selection.filter((i) => i !== row.id) : [...selection, row.id])
+                }
+              >
+                {/* Expand button — LEFT column */}
+                <td style={{ padding: "4px 4px 4px 8px" }}>
+                  {available.length > 0 && (
+                    <div style={{ position: "relative", display: "inline-block" }}>
+                      <button
+                        className={`mg-xb${Object.keys(rowExpanded).length ? " on" : ""}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenu(openMenu === row.id ? null : row.id);
+                        }}
+                      >
+                        ▾
+                      </button>
+                      {openMenu === row.id && (
+                        <div className="mg-xmenu">
+                          {available.map((t) => {
+                            const tm = TYPE_META[t] ?? TYPE_META.MediaPartner;
+                            return (
+                              <div
+                                key={t}
+                                className={`mg-xopt${rowExpanded[t] ? " on" : ""}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleChild(row.id, t);
+                                }}
+                              >
+                                <span className="mg-xdot" style={{ background: tm.c }} />
+                                {tm.label} ({(related[t] ?? []).length})
+                                {rowExpanded[t] && " ✓"}
+                              </div>
+                            );
+                          })}
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </React.Fragment>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+                      )}
+                    </div>
+                  )}
+                </td>
+                {/* Checkbox */}
+                <td style={{ padding: "4px 4px" }}>
+                  <div className={`mg-ck${isSel ? " on" : ""}`} onClick={(e) => e.stopPropagation()} />
+                </td>
+                {cols.map((c) => (
+                  <td key={c.k} className={c.k === "name" ? "mg-cell-name" : ""}>
+                    <CellValue col={c} row={row} />
+                  </td>
+                ))}
+              </tr>
+              {Object.keys(rowExpanded).map((childType) => {
+                if (!rowExpanded[childType]) return null;
+                const childIds = related[childType] ?? [];
+                if (!childIds.length) return null;
+                const childRows = childIds.map((id) => ({ id, ...(entities[id] as object) })) as RowData[];
+                const tm2 = TYPE_META[childType] ?? TYPE_META.MediaPartner;
+                return (
+                  <tr key={`child-${row.id}-${childType}`}>
+                    <td colSpan={cols.length + 2} style={{ padding: "0 0 4px 18px" }}>
+                      <div style={{ borderLeft: `2px solid ${tm2.bd}`, marginTop: 3, marginBottom: 3 }}>
+                        <div style={{ padding: "2px 8px", fontSize: 9, fontWeight: 600, letterSpacing: ".6px", textTransform: "uppercase", color: tm2.c, background: tm2.bg }}>
+                          {tm2.label}
+                        </div>
+                        <FGTable
+                          type={childType}
+                          rows={childRows}
+                          entities={entities}
+                          connections={connections}
+                          selection={selection}
+                          onSelectionChange={onSelectionChange}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </React.Fragment>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
