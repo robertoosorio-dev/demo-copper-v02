@@ -269,7 +269,8 @@ export default function ContextPanel() {
     setLoading(true);
 
     try {
-      const result = await chat(version.id!, text, llmModel, [...exchanges, userExchange], version);
+      const selectedForContext = libraryFiles.filter((f) => f.selectedForContext);
+      const result = await chat(version.id!, text, llmModel, [...exchanges, userExchange], version, selectedForContext.length > 0 ? selectedForContext : undefined);
       appendExchanges([result.exchange]);
       if (result.version) mergeServerVersion(result.version);
       if (result.wizard) openWizard(result.wizard);

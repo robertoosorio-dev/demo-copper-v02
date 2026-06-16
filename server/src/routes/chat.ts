@@ -1,21 +1,68 @@
 import { Router } from "express";
+import { GCSStorageProvider } from "../storage/gcs.js";
 import type { ProjectStore } from "../store.js";
-import type { Exchange, Intent, ReasoningLogEntry, Version } from "@copper/contracts";
+import type { Exchange, Intent, LibraryFile, ReasoningLogEntry, Version } from "@copper/contracts";
 import { routeLLM } from "../llm/router.js";
 import { buildSystemPrompt } from "../llm/systemPrompt.js";
 import { applyOps } from "../llm/applyOps.js";
 import { detectWizardIntent, getWizardShape } from "../wizardStandin.js";
+
+const TEXT_TYPES = new Set(["md", "txt", "csv", "json"]);
+const FILE_CONTENT_LIMIT = 4000;
+
+let _storage: GCSStorageProvider | null = null;
+function getStorage(): GCSStorageProvider | null {
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON?.trim()) return null;
+  if (!_storage) _storage = new GCSStorageProvider();
+  return _storage;
+}
+
+async function buildLibrarySection(files: LibraryFile[]): Promise<string> {
+  if (files.length === 0) return "";
+  const store = getStorage();
+  const parts: string[] = [];
+
+  for (const f of files) {
+    const ext = (f.type || f.name.split(".").pop() || "").toLowerCase();
+    const meta = `**${f.name}** (${ext.toUpperCase()}, ${f.tier})`;
+
+    if (!f.contentPath || !TEXT_TYPES.has(ext) || !store) {
+      parts.push(`${meta}\n_Content not available as text — metadata only._`);
+      continue;
+    }
+
+    try {
+      const buf = await store.readBinary(f.contentPath);
+      let text = buf.toString("utf-8");
+      if (text.length > FILE_CONTENT_LIMIT) {
+        text = text.slice(0, FILE_CONTENT_LIMIT) + "\n… [truncated]";
+      }
+      parts.push(`${meta}\n\`\`\`\n${text}\n\`\`\``);
+    } catch {
+      parts.push(`${meta}\n_Content could not be read._`);
+    }
+  }
+
+  return parts.join("\n\n");
+}
 
 export function makeChatRouter(store: ProjectStore, getKB: () => string = () => ""): Router {
   const router = Router();
 
   // POST /api/projects/:id/chat
   router.post("/:id/chat", async (req, res) => {
-    const { message, llmModel = "claude-sonnet-4-6", exchanges = [], version: clientVersion } = req.body as {
+    const {
+      message,
+      llmModel = "claude-sonnet-4-6",
+      exchanges = [],
+      version: clientVersion,
+      libraryContext = [],
+    } = req.body as {
       message: string;
       llmModel?: string;
       exchanges?: Exchange[];
       version?: Version;
+      libraryContext?: LibraryFile[];
     };
 
     if (!message?.trim()) return res.status(400).json({ error: "message required" });
@@ -37,12 +84,11 @@ export function makeChatRouter(store: ProjectStore, getKB: () => string = () => 
     }
 
     const projectId = req.params.id;
-    // Use the client's current version as the base (may be provisional/unsaved).
-    // Fall back to store only if client didn't send it.
     const version = clientVersion ?? await store.loadLatestVersion(projectId);
     if (!version) return res.status(404).json({ error: "Project not found" });
 
-    const systemPrompt = buildSystemPrompt(version, getKB());
+    const librarySection = await buildLibrarySection(libraryContext);
+    const systemPrompt = buildSystemPrompt(version, getKB(), librarySection);
 
     // Build user message with recent conversation context
     const historyLines = exchanges.slice(-6).map((e) =>
@@ -107,6 +153,9 @@ export function makeChatRouter(store: ProjectStore, getKB: () => string = () => 
           userMessage: message,
           history: exchanges.slice(-6).map((e) => ({ role: e.role, content: e.text })),
         },
+        ...(libraryContext.length > 0 ? {
+          libraryFiles: libraryContext.map((f) => ({ id: f.id, name: f.name, type: f.type, hasContent: !!f.contentPath })),
+        } : {}),
       },
     };
     await store.appendReasoningEntry(projectId, newVersion.version, passId, rlogEntry);
@@ -124,6 +173,9 @@ export function makeChatRouter(store: ProjectStore, getKB: () => string = () => 
       ...(llmCard ? { card: llmCard } : {}),
     };
 
+    if (libraryContext.length > 0) {
+      console.log(`[chat] library ctx: ${libraryContext.map((f) => f.name).join(", ")}`);
+    }
     console.log(
       `[chat] ✅ ${projectId} v${version.version}→v${newVersion.version} | ops:${ops.length} versioned:${versioned}`,
     );

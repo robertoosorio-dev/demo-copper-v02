@@ -8,7 +8,7 @@ const CARD_GUIDANCE = CARD_DEFINITIONS.map((d) => {
   return `${d.cardType}\n  WHEN: ${d.whenToUse}\n  NOT:  ${d.whenNotToUse}\n  props: { ${schema} }`;
 }).join("\n\n");
 
-export function buildSystemPrompt(version: Version, kbContent = ""): string {
+export function buildSystemPrompt(version: Version, kbContent = "", librarySection = ""): string {
   const dataEntities  = version.plans.data.model?.entities  ?? {};
   const mediaEntities = version.plans.media.model?.entities ?? {};
 
@@ -27,10 +27,14 @@ export function buildSystemPrompt(version: Version, kbContent = ""): string {
     ? `## DOMAIN KNOWLEDGE\n\n${kbContent.trim()}\n\n---\n\n`
     : "";
 
+  const libSection = librarySection.trim()
+    ? `## LIBRARY FILES (user-selected for this conversation)\n\n${librarySection.trim()}\n\n---\n\n`
+    : "";
+
   return `You are an AI planning assistant for CoPPER, a media campaign planning platform.
 Project: "${version.name}"
 
-${kbSection}
+${kbSection}${libSection}
 
 ## CURRENT DATA PLAN (${Object.keys(dataEntities).length} entities)
 ${dataList}
