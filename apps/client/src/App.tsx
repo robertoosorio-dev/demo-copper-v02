@@ -26,6 +26,9 @@ import {
   IconHistory,
   IconSettings,
   IconWand,
+  IconMessage,
+  IconFileText,
+  IconLayoutColumns,
 } from "@tabler/icons-react";
 
 const PLANS = [
@@ -33,6 +36,35 @@ const PLANS = [
   { id: "media",    label: "Media Plan",    icon: IconChartBar,  stub: false },
   { id: "creative", label: "Creative Plan", icon: IconPalette,   stub: true  },
 ] as const;
+
+function ResizeHandle({ onDelta }: { onDelta: (dx: number) => void }) {
+  const startRef = useRef<number | null>(null);
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    startRef.current = e.clientX;
+    const onMove = (ev: MouseEvent) => {
+      if (startRef.current === null) return;
+      onDelta(ev.clientX - startRef.current);
+      startRef.current = ev.clientX;
+    };
+    const onUp = () => {
+      startRef.current = null;
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
+  return <div className="panel-resize-handle" onMouseDown={handleMouseDown} />;
+}
+
+function PanelStripe({ icon: Icon, title, onClick }: { icon: React.ComponentType<{ size?: number | string }>; title: string; onClick: () => void }) {
+  return (
+    <div className="panel-stripe" onClick={onClick} title={title}>
+      <Icon size={16} />
+    </div>
+  );
+}
 
 function useGlobalDropGuard() {
   useEffect(() => {
@@ -171,7 +203,12 @@ function MainApp() {
   const loadVersionStore  = useStore((s) => s.loadVersion);
   const saveNow           = useStore((s) => s.saveNow);
   const openWizard        = useStore((s) => s.openWizard);
-  const libraryOpen       = useStore((s) => s.libraryOpen);
+  const panelFocus        = useStore((s) => s.panelFocus);
+  const contextW          = useStore((s) => s.contextW);
+  const planDocW          = useStore((s) => s.planDocW);
+  const setPanelFocus     = useStore((s) => s.setPanelFocus);
+  const setContextW       = useStore((s) => s.setContextW);
+  const setPlanDocW       = useStore((s) => s.setPlanDocW);
   const [showNewProject, setShowNewProject] = useState(false);
 
   useEffect(() => {
@@ -272,32 +309,58 @@ function MainApp() {
       ) : isQA ? (
         <QAViewer />
       ) : (
-        <div className={`layout${libraryOpen ? " layout--library-open" : ""}`}>
-          <ContextPanel />
-
-          <div className="plan-region">
-            <div className="tabbar">
-              {PLANS.map((p) => (
-                <div
-                  key={p.id}
-                  className={`tab${activePlan === p.id ? " active" : ""}${p.stub ? " tab--stub" : ""}`}
-                  onClick={() => !p.stub && setActivePlan(p.id as "data" | "media" | "creative")}
-                  title={p.stub ? "Coming soon" : undefined}
-                >
-                  <p.icon size={13} />
-                  {p.label}
+        <div className="layout">
+          {panelFocus === "context" ? (
+            <>
+              <ContextPanel style={{ flex: 1, width: "auto" }} />
+              <PanelStripe icon={IconLayoutColumns} title="Plan & Model" onClick={() => setPanelFocus("none")} />
+            </>
+          ) : (
+            <>
+              {panelFocus !== "none" ? (
+                <PanelStripe icon={IconMessage} title="Chat" onClick={() => setPanelFocus("none")} />
+              ) : (
+                <ContextPanel style={{ width: contextW, flexShrink: 0 }} />
+              )}
+              {panelFocus === "none" && (
+                <ResizeHandle onDelta={(dx) => setContextW(Math.max(180, contextW + dx))} />
+              )}
+              <div className="plan-region">
+                <div className="tabbar">
+                  {PLANS.map((p) => (
+                    <div
+                      key={p.id}
+                      className={`tab${activePlan === p.id ? " active" : ""}${p.stub ? " tab--stub" : ""}`}
+                      onClick={() => !p.stub && setActivePlan(p.id as "data" | "media" | "creative")}
+                      title={p.stub ? "Coming soon" : undefined}
+                    >
+                      <p.icon size={13} />
+                      {p.label}
+                    </div>
+                  ))}
+                  <span className="tab-note">tabs are projections of one version · may overlap</span>
                 </div>
-              ))}
-              <span className="tab-note">tabs are projections of one version · may overlap</span>
-            </div>
 
-            <VersionBar />
+                <VersionBar />
 
-            <div className="subpanels">
-              <PlanDocument />
-              <ProjectModel />
-            </div>
-          </div>
+                <div className="subpanels">
+                  {panelFocus === "model" ? (
+                    <PanelStripe icon={IconFileText} title="Plan" onClick={() => setPanelFocus("none")} />
+                  ) : (
+                    <PlanDocument style={panelFocus === "plan" ? { flex: 1, width: "auto" } : { width: planDocW, flexShrink: 0 }} />
+                  )}
+                  {panelFocus === "none" && (
+                    <ResizeHandle onDelta={(dx) => setPlanDocW(Math.max(180, planDocW + dx))} />
+                  )}
+                  {panelFocus === "plan" ? (
+                    <PanelStripe icon={IconAffiliate} title="Model" onClick={() => setPanelFocus("none")} />
+                  ) : (
+                    <ProjectModel />
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

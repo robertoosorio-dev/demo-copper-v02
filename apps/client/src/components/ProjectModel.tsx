@@ -1,14 +1,17 @@
 import React, { useState } from "react";
 import { useStore } from "../store.js";
+import type { PanelFocus } from "../store.js";
 import GraphCanvas from "./GraphCanvas.js";
 import MediaGraph from "./mediaGraph/MediaGraph.js";
 import InspectorPanel from "./InspectorPanel.js";
 import { classifyFile } from "../lib/parseContextFile.js";
 import { useDocumentHandlers } from "../hooks/useDocumentHandlers.js";
-import { IconCloudUpload } from "@tabler/icons-react";
+import { IconCloudUpload, IconArrowsMaximize, IconArrowsMinimize } from "@tabler/icons-react";
 
-export default function ProjectModel() {
-  const activePlan = useStore((s) => s.activePlan);
+export default function ProjectModel({ style }: { style?: React.CSSProperties }) {
+  const activePlan    = useStore((s) => s.activePlan);
+  const panelFocus    = useStore((s) => s.panelFocus as PanelFocus);
+  const setPanelFocus = useStore((s) => s.setPanelFocus);
   const { launchWizard } = useDocumentHandlers();
   const [dragOver, setDragOver] = useState(false);
 
@@ -36,7 +39,7 @@ export default function ProjectModel() {
 
   if (activePlan === "creative") {
     return (
-      <div className="project-model project-model--empty">
+      <div className="project-model project-model--empty" style={style}>
         <div className="model-empty-msg">Creative Plan model — coming soon</div>
       </div>
     );
@@ -45,11 +48,21 @@ export default function ProjectModel() {
   return (
     <div
       className={`project-model${dragOver ? " project-model--drag" : ""}`}
+      style={style}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
+      <div className="model-head">
+        <button
+          className="panel-max-btn"
+          onClick={() => setPanelFocus(panelFocus === "model" ? "none" : "model")}
+          title={panelFocus === "model" ? "Restore" : "Expand"}
+        >
+          {panelFocus === "model" ? <IconArrowsMinimize size={11} /> : <IconArrowsMaximize size={11} />}
+        </button>
+      </div>
       {dragOver && (
         <div className="drop-overlay">
           <IconCloudUpload size={28} />

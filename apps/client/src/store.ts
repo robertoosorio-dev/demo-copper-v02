@@ -6,6 +6,19 @@ import type { LibraryData } from "./api.js";
 
 export type SaveStatus = "saved" | "saving" | "unsaved";
 export type ActivePlan = "data" | "media" | "creative";
+export type PanelFocus = "none" | "context" | "plan" | "model";
+
+const PANEL_LAYOUT_KEY = "copper-panel-layout";
+function loadPanelLayout(): { panelFocus: PanelFocus; contextW: number; planDocW: number } {
+  try {
+    const raw = localStorage.getItem(PANEL_LAYOUT_KEY);
+    if (!raw) return { panelFocus: "none", contextW: 300, planDocW: 380 };
+    return { panelFocus: "none", contextW: 300, planDocW: 380, ...JSON.parse(raw) };
+  } catch { return { panelFocus: "none", contextW: 300, planDocW: 380 }; }
+}
+function savePanelLayout(s: { panelFocus: PanelFocus; contextW: number; planDocW: number }) {
+  try { localStorage.setItem(PANEL_LAYOUT_KEY, JSON.stringify(s)); } catch {}
+}
 
 interface State {
   // Project / version
@@ -27,6 +40,9 @@ interface State {
   libraryFiles: LibraryFile[];
   libraryFolders: string[];
   libraryOpen: boolean;
+  panelFocus: PanelFocus;
+  contextW: number;
+  planDocW: number;
 
   // ── Derived accessors (computed from version) ──────────────────────────────
   dataModel: () => DataPlanModel | null;
@@ -54,6 +70,9 @@ interface State {
   addLibraryFile: (file: LibraryFile) => void;
   updateLibraryFile: (id: string, patch: Partial<LibraryFile>) => void;
   removeLibraryFile: (id: string) => void;
+  setPanelFocus: (f: PanelFocus) => void;
+  setContextW: (w: number) => void;
+  setPlanDocW: (w: number) => void;
 
   updateDataDocument: (doc: string) => void;
   updateMediaDocument: (doc: string) => void;
@@ -84,6 +103,7 @@ export const useStore = create<State>((set, get) => ({
   libraryFiles: [],
   libraryFolders: [],
   libraryOpen: false,
+  ...loadPanelLayout(),
 
   // Derived — read from version each time (no redundant mirrors)
   dataModel: () => get().version?.plans.data.model ?? null,
@@ -121,12 +141,36 @@ export const useStore = create<State>((set, get) => ({
   setLibraryData: ({ files, folders }) => set({ libraryFiles: files, libraryFolders: folders }),
   setLibraryFiles: (libraryFiles) => set({ libraryFiles }),
   setLibraryFolders: (libraryFolders) => set({ libraryFolders }),
-  setLibraryOpen: (libraryOpen) => set({ libraryOpen }),
+  setLibraryOpen: (libraryOpen) => {
+    if (libraryOpen) {
+      const { contextW, planDocW } = get();
+      savePanelLayout({ panelFocus: "context", contextW, planDocW });
+      set({ libraryOpen, panelFocus: "context" });
+    } else {
+      set({ libraryOpen });
+    }
+  },
   addLibraryFile: (file) => set((s) => ({ libraryFiles: [...s.libraryFiles, file] })),
   updateLibraryFile: (id, patch) =>
     set((s) => ({ libraryFiles: s.libraryFiles.map((f) => f.id === id ? { ...f, ...patch } : f) })),
   removeLibraryFile: (id) =>
     set((s) => ({ libraryFiles: s.libraryFiles.filter((f) => f.id !== id) })),
+
+  setPanelFocus: (panelFocus) => {
+    const { contextW, planDocW } = get();
+    savePanelLayout({ panelFocus, contextW, planDocW });
+    set({ panelFocus });
+  },
+  setContextW: (contextW) => {
+    const { panelFocus, planDocW } = get();
+    savePanelLayout({ panelFocus, contextW, planDocW });
+    set({ contextW });
+  },
+  setPlanDocW: (planDocW) => {
+    const { panelFocus, contextW } = get();
+    savePanelLayout({ panelFocus, contextW, planDocW });
+    set({ planDocW });
+  },
 
   updateDataDocument: (doc) =>
     set((s) => {

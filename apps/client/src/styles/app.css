@@ -342,8 +342,6 @@
 
 /* ── PLAN DOCUMENT ── */
 .plan-doc {
-  width: 380px;
-  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -390,10 +388,61 @@
 .vb-author { font-size: 10px; color: var(--txt3); background: var(--bg3); border: 1px solid var(--b); border-radius: 4px; padding: 1px 5px; }
 .vb-date { font-size: 10px; color: var(--txt3); margin-left: auto; }
 
+/* ── PANEL RESIZE / STRIPE / MAXIMIZE ── */
+.panel-resize-handle {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  border-left: 1px solid var(--b);
+  transition: background .15s, border-color .15s;
+  z-index: 10;
+}
+.panel-resize-handle:hover {
+  background: var(--blue-bg);
+  border-left-color: var(--blue-bd);
+}
+.panel-stripe {
+  width: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg2);
+  border-left: 1px solid var(--b);
+  cursor: pointer;
+  color: var(--txt3);
+  transition: background .1s, color .1s;
+}
+.panel-stripe:hover { background: var(--bg3); color: var(--txt); }
+.panel-max-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--txt3);
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.panel-max-btn:hover { background: var(--bg3); color: var(--txt); }
+.model-head {
+  display: flex;
+  align-items: center;
+  padding: 3px 8px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--b);
+  flex-shrink: 0;
+  min-height: 28px;
+}
+
 /* ── CONTEXT PANEL (v2 variant) ── */
 .context-panel {
-  width: 300px;
-  flex-shrink: 0;
   position: relative;
   background: var(--bg);
   border-right: 2px solid var(--b2);
@@ -1642,10 +1691,6 @@
 /* ==========================================================================
    LIBRARY — Layout, Shelf, Takeover, FilePreview
    ========================================================================== */
-
-/* Layout: library-open mode */
-.layout--library-open .context-panel { flex: 1; width: auto; min-width: 0; }
-.layout--library-open .plan-region { width: 172px; flex: none; opacity: 0.45; pointer-events: none; filter: saturate(.6); }
 
 /* Library shelf */
 .lib-shelf { flex: none; border-bottom: 1px solid var(--b); background: var(--bg2); padding: 9px 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; }

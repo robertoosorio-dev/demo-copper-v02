@@ -6,7 +6,8 @@ import { CardPlayer } from "./cards/CardPlayer.js";
 import { chat, getLibrary, putLibrary, uploadLibraryContent } from "../api.js";
 import { classifyFile } from "../lib/parseContextFile.js";
 import { useDocumentHandlers } from "../hooks/useDocumentHandlers.js";
-import { IconMessage, IconArrowUp, IconCloudUpload, IconPlus, IconX } from "@tabler/icons-react";
+import { IconMessage, IconArrowUp, IconCloudUpload, IconPlus, IconX, IconArrowsMaximize, IconArrowsMinimize } from "@tabler/icons-react";
+import type { PanelFocus } from "../store.js";
 import type { Exchange, LibraryFile } from "@copper/contracts";
 import LibraryShelf from "./library/LibraryShelf.js";
 import LibraryTakeover from "./library/LibraryTakeover.js";
@@ -74,7 +75,7 @@ interface DisambigState {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function ContextPanel() {
+export default function ContextPanel({ style }: { style?: React.CSSProperties }) {
   const version            = useStore((s) => s.version);
   const exchanges          = useStore((s) => s.version?.context.exchanges) ?? [];
   const contextFiles       = useStore((s) => s.version?.context.contextFiles) ?? [];
@@ -93,6 +94,8 @@ export default function ContextPanel() {
   const setLibraryOpen     = useStore((s) => s.setLibraryOpen);
   const addLibraryFile     = useStore((s) => s.addLibraryFile);
   const updateLibraryFile  = useStore((s) => s.updateLibraryFile);
+  const panelFocus         = useStore((s) => s.panelFocus as PanelFocus);
+  const setPanelFocus      = useStore((s) => s.setPanelFocus);
 
   const { launchWizard } = useDocumentHandlers();
 
@@ -315,6 +318,7 @@ export default function ContextPanel() {
   return (
     <div
       className={`context-panel${dragOver ? " context-panel--drag" : ""}`}
+      style={style}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDragOver={handleDragOver}
@@ -373,6 +377,13 @@ export default function ContextPanel() {
                 {contextFiles.length} file{contextFiles.length !== 1 ? "s" : ""}
               </span>
             )}
+            <button
+              className="panel-max-btn"
+              onClick={() => setPanelFocus(panelFocus === "context" ? "none" : "context")}
+              title={panelFocus === "context" ? "Restore" : "Expand"}
+            >
+              {panelFocus === "context" ? <IconArrowsMinimize size={11} /> : <IconArrowsMaximize size={11} />}
+            </button>
           </div>
 
           {/* Persistent context files */}
