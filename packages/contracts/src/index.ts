@@ -420,8 +420,15 @@ export interface LibraryFile {
   id: string;
   name: string;
   type: "docx" | "xlsx" | "pptx" | "pdf" | "md" | string;
-  tier: "global" | "local";   // a label — no engine meaning
-  folderPath: string;          // inert; tree is grouped from this
-  updatedAt: string;           // drives flat recents in the shelf
+  tier: "global" | "local";
+  folderPath: string;          // "" = root; flat folder name (no nesting)
+  updatedAt: string;
   size?: number;
+  selectedForContext: boolean; // whether LLM context includes this file; default true
+  contentPath?: string;        // GCS path for the uploaded binary (undefined until uploaded)
+}
+
+export interface LibraryData {
+  files: LibraryFile[];
+  folders: string[];           // explicit folder names (supports empty folders)
 }

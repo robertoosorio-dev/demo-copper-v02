@@ -3,7 +3,7 @@ import { useStore } from "../store.js";
 import type { ActivePlan } from "../store.js";
 import ProposalCard from "./ProposalCard.js";
 import { CardPlayer } from "./cards/CardPlayer.js";
-import { chat, getLibrary, putLibrary } from "../api.js";
+import { chat, getLibrary, putLibrary, uploadLibraryContent } from "../api.js";
 import { classifyFile } from "../lib/parseContextFile.js";
 import { useDocumentHandlers } from "../hooks/useDocumentHandlers.js";
 import { IconMessage, IconArrowUp, IconCloudUpload, IconPlus, IconX } from "@tabler/icons-react";
@@ -65,6 +65,7 @@ const MENU_ITEM_DEFS: MenuItemDef[] = [
 interface Attachment {
   id: string;
   name: string;
+  file?: File; // present for files dropped on chat; uploaded to library on submit
 }
 
 interface DisambigState {
@@ -86,10 +87,12 @@ export default function ContextPanel() {
   const setLoading         = useStore((s) => s.setLoading);
   const openWizard         = useStore((s) => s.openWizard);
   const libraryFiles       = useStore((s) => s.libraryFiles);
+  const libraryFolders     = useStore((s) => s.libraryFolders);
   const libraryOpen        = useStore((s) => s.libraryOpen);
-  const setLibraryFiles    = useStore((s) => s.setLibraryFiles);
+  const setLibraryData     = useStore((s) => s.setLibraryData);
   const setLibraryOpen     = useStore((s) => s.setLibraryOpen);
   const addLibraryFile     = useStore((s) => s.addLibraryFile);
+  const updateLibraryFile  = useStore((s) => s.updateLibraryFile);
 
   const { launchWizard } = useDocumentHandlers();
 
@@ -97,7 +100,7 @@ export default function ContextPanel() {
   useEffect(() => {
     if (!version?.id) return;
     getLibrary(version.id)
-      .then(({ files }) => setLibraryFiles(files))
+      .then((data) => setLibraryData(data))
       .catch(() => { /* no library yet is fine */ });
   }, [version?.id]);
 
@@ -141,35 +144,44 @@ export default function ContextPanel() {
 
   // ── Shared destination handlers ───────────────────────────────────────────
 
+  // Drop on chat → attachment chip (staged for submit, not yet in library)
   function parkToLibrary(files: File[]) {
     setAttachments((prev) => [
       ...prev,
-      ...files.map((f) => ({ id: `att_${Date.now()}_${f.name}`, name: f.name })),
+      ...files.map((f) => ({ id: `lib_${Date.now()}_${f.name}`, name: f.name, file: f })),
     ]);
   }
 
+  // Library takeover "Add" button → immediately add to library + upload content
   function handleAddFile(file: File) {
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
     const cls = classifyFile(file.name);
-    // Spreadsheets → wizard routing (existing behavior)
     if (cls === "table" || cls === "spreadsheet") {
       setLibraryOpen(false);
       void launchWizard(file);
       return;
     }
-    // Everything else → drop silently into library
     const libFile: LibraryFile = {
       id: `lib_${Date.now()}_${file.name}`,
       name: file.name,
       type: ext,
       tier: "local",
-      folderPath: "Local/Media",
+      folderPath: "",
       updatedAt: new Date().toISOString(),
       size: file.size,
+      selectedForContext: true,
     };
     addLibraryFile(libFile);
+    const merged = [...libraryFiles, libFile];
     if (version?.id) {
-      void putLibrary(version.id, [...libraryFiles, libFile]);
+      void putLibrary(version.id, { files: merged, folders: libraryFolders });
+      void uploadLibraryContent(version.id, libFile.id, file).then(({ contentPath }) => {
+        updateLibraryFile(libFile.id, { contentPath });
+        void putLibrary(version.id!, {
+          files: merged.map((f) => f.id === libFile.id ? { ...f, contentPath } : f),
+          folders: libraryFolders,
+        });
+      });
     }
   }
 
@@ -216,9 +228,32 @@ export default function ContextPanel() {
     if ((!text && attachments.length === 0) || isLoading || thinking || !version) return;
 
     setInput("");
-    setAttachments([]); // TODO(human): hand off to Library on send
+    const pendingAttachments = [...attachments];
+    setAttachments([]);
 
-    // Attachments only — nothing to send to the LLM, Library stub absorbed them
+    // Flush staged files to library
+    if (pendingAttachments.length > 0 && version?.id) {
+      const newLibFiles: LibraryFile[] = pendingAttachments.map((att) => ({
+        id: att.id,
+        name: att.name,
+        type: att.name.split(".").pop()?.toLowerCase() ?? "",
+        tier: "local",
+        folderPath: "",
+        updatedAt: new Date().toISOString(),
+        size: att.file?.size,
+        selectedForContext: true,
+      }));
+      for (const lf of newLibFiles) addLibraryFile(lf);
+      const merged = [...libraryFiles, ...newLibFiles];
+      void putLibrary(version.id, { files: merged, folders: libraryFolders });
+      for (const att of pendingAttachments) {
+        if (!att.file) continue;
+        void uploadLibraryContent(version.id, att.id, att.file).then(({ contentPath }) => {
+          updateLibraryFile(att.id, { contentPath });
+        });
+      }
+    }
+
     if (!text) return;
 
     const ts = new Date().toISOString();
@@ -289,7 +324,7 @@ export default function ContextPanel() {
         <div className="drop-overlay">
           <IconCloudUpload size={28} />
           <span className="drop-overlay-label">Drop File</span>
-          <span className="drop-overlay-sub">tables → wizard · docs → library</span>
+          <span className="drop-overlay-sub">tables → wizard · docs → chat context</span>
         </div>
       )}
 

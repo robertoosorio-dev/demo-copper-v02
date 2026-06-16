@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useState } from "react";
 import type { LibraryFile } from "@copper/contracts";
 
 interface FilePreviewProps {
@@ -6,6 +6,10 @@ interface FilePreviewProps {
   size: "mini" | "large";
   selected?: boolean;
   onClick?: () => void;
+  onToggleContext?: () => void;
+  onOpen?: () => void;
+  onRename?: () => void;
+  onDelete?: () => void;
 }
 
 function truncate(s: string, max: number) {
@@ -103,7 +107,56 @@ function LargeSketch({ ext }: { ext: string }) {
   }
 }
 
-export function FilePreview({ file, size, selected, onClick }: FilePreviewProps) {
+function DotsMenu({ onOpen, onRename, onDelete }: {
+  onOpen?: () => void;
+  onRename?: () => void;
+  onDelete?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
+
+  return (
+    <div className="fp-dots-wrap" ref={ref}>
+      <button
+        className="fp-dots"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        title="More actions"
+      >
+        ···
+      </button>
+      {open && (
+        <div className="fp-menu">
+          {onOpen && (
+            <button className="fp-menu-item" onClick={(e) => { e.stopPropagation(); setOpen(false); onOpen(); }}>
+              Open / Preview
+            </button>
+          )}
+          {onRename && (
+            <button className="fp-menu-item" onClick={(e) => { e.stopPropagation(); setOpen(false); onRename(); }}>
+              Rename
+            </button>
+          )}
+          {onDelete && (
+            <button className="fp-menu-item fp-menu-item--danger" onClick={(e) => { e.stopPropagation(); setOpen(false); onDelete(); }}>
+              Delete
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function FilePreview({ file, size, selected, onClick, onToggleContext, onOpen, onRename, onDelete }: FilePreviewProps) {
   const ext = (file.type || "").toLowerCase();
   const chip = (ext || file.name.split(".").pop() || "FILE").toUpperCase();
 
@@ -120,11 +173,27 @@ export function FilePreview({ file, size, selected, onClick }: FilePreviewProps)
 
   return (
     <div
-      className={`lib-tile${selected ? " lib-tile--sel" : ""}`}
+      className={`lib-tile${selected ? " lib-tile--sel" : ""}${file.selectedForContext ? "" : " lib-tile--excl"}`}
       data-type={ext}
       onClick={onClick}
     >
-      <div className="fp-page">
+      {/* Context checkbox */}
+      {onToggleContext && (
+        <label className="fp-ctx-cb" onClick={(e) => e.stopPropagation()} title="Include in context">
+          <input
+            type="checkbox"
+            checked={file.selectedForContext}
+            onChange={onToggleContext}
+          />
+        </label>
+      )}
+
+      {/* Actions menu */}
+      {(onOpen || onRename || onDelete) && (
+        <DotsMenu onOpen={onOpen} onRename={onRename} onDelete={onDelete} />
+      )}
+
+      <div className="fp-page" onDoubleClick={(e) => { e.stopPropagation(); onOpen?.(); }}>
         <LargeSketch ext={ext} />
         <span className="fp-chip">{chip}</span>
       </div>

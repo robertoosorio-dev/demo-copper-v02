@@ -61,6 +61,17 @@ export class GCSStorageProvider {
     return prefixes.map((p) => p.slice(queryPrefix.length).replace(/\/$/, ""));
   }
 
+  async readBinary(p: string): Promise<Buffer> {
+    console.log(`[gcs] readBinary  ${p}`);
+    const [contents] = await this._bucket.file(p).download();
+    return contents;
+  }
+
+  async writeBinary(p: string, data: Buffer, contentType: string): Promise<void> {
+    console.log(`[gcs] writeBinary ${p} (${data.length} bytes)`);
+    await this._bucket.file(p).save(data, { contentType });
+  }
+
   async exists(p: string): Promise<boolean> {
     const [ex] = await this._bucket.file(p).exists();
     return ex;

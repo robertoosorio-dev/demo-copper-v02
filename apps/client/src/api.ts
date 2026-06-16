@@ -241,12 +241,39 @@ export async function adminQAFetchKBFiles(): Promise<Array<{ path: string; conte
 
 // ── Library ───────────────────────────────────────────────────────────────────
 
-export function getLibrary(projectId: string): Promise<{ files: LibraryFile[] }> {
-  return get<{ files: LibraryFile[] }>(`/projects/${projectId}/library`);
+import type { LibraryData } from "@copper/contracts";
+export type { LibraryData };
+
+export function getLibrary(projectId: string): Promise<LibraryData> {
+  return get<LibraryData>(`/projects/${projectId}/library`);
 }
 
-export function putLibrary(projectId: string, files: LibraryFile[]): Promise<{ ok: boolean }> {
-  return put<{ ok: boolean }>(`/projects/${projectId}/library`, { files });
+export function putLibrary(projectId: string, data: LibraryData): Promise<{ ok: boolean }> {
+  return put<{ ok: boolean }>(`/projects/${projectId}/library`, data);
+}
+
+export async function uploadLibraryContent(
+  projectId: string,
+  fileId: string,
+  file: File,
+): Promise<{ contentPath: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const base64 = dataUrl.split(",")[1];
+      post<{ ok: boolean; contentPath: string }>(
+        `/projects/${projectId}/library/upload`,
+        { fileId, contentBase64: base64, mimeType: file.type || "application/octet-stream" },
+      ).then(resolve).catch(reject);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+export function libraryContentUrl(projectId: string, fileId: string): string {
+  return `/api/projects/${projectId}/library/${encodeURIComponent(fileId)}/content`;
 }
 
 // ── Card definitions ──────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { Version, DataPlanModel, MediaPlanModel, Exchange, LibraryFile } from "@copper/contracts";
 import { saveProject as apiSaveProject } from "./api.js";
 import type { WizardShape } from "./wizardStandin.js";
+import type { LibraryData } from "./api.js";
 
 export type SaveStatus = "saved" | "saving" | "unsaved";
 export type ActivePlan = "data" | "media" | "creative";
@@ -24,6 +25,7 @@ interface State {
   isLoading: boolean;
   wizardShape: WizardShape | null;
   libraryFiles: LibraryFile[];
+  libraryFolders: string[];
   libraryOpen: boolean;
 
   // ── Derived accessors (computed from version) ──────────────────────────────
@@ -45,9 +47,13 @@ interface State {
   setLoading: (v: boolean) => void;
   openWizard: (shape: WizardShape) => void;
   closeWizard: () => void;
+  setLibraryData: (data: LibraryData) => void;
   setLibraryFiles: (files: LibraryFile[]) => void;
+  setLibraryFolders: (folders: string[]) => void;
   setLibraryOpen: (open: boolean) => void;
   addLibraryFile: (file: LibraryFile) => void;
+  updateLibraryFile: (id: string, patch: Partial<LibraryFile>) => void;
+  removeLibraryFile: (id: string) => void;
 
   updateDataDocument: (doc: string) => void;
   updateMediaDocument: (doc: string) => void;
@@ -76,6 +82,7 @@ export const useStore = create<State>((set, get) => ({
   isLoading: false,
   wizardShape: null,
   libraryFiles: [],
+  libraryFolders: [],
   libraryOpen: false,
 
   // Derived — read from version each time (no redundant mirrors)
@@ -111,9 +118,15 @@ export const useStore = create<State>((set, get) => ({
   setLoading: (isLoading) => set({ isLoading }),
   openWizard: (wizardShape) => set({ wizardShape }),
   closeWizard: () => set({ wizardShape: null }),
+  setLibraryData: ({ files, folders }) => set({ libraryFiles: files, libraryFolders: folders }),
   setLibraryFiles: (libraryFiles) => set({ libraryFiles }),
+  setLibraryFolders: (libraryFolders) => set({ libraryFolders }),
   setLibraryOpen: (libraryOpen) => set({ libraryOpen }),
   addLibraryFile: (file) => set((s) => ({ libraryFiles: [...s.libraryFiles, file] })),
+  updateLibraryFile: (id, patch) =>
+    set((s) => ({ libraryFiles: s.libraryFiles.map((f) => f.id === id ? { ...f, ...patch } : f) })),
+  removeLibraryFile: (id) =>
+    set((s) => ({ libraryFiles: s.libraryFiles.filter((f) => f.id !== id) })),
 
   updateDataDocument: (doc) =>
     set((s) => {

@@ -1702,6 +1702,21 @@
 .lib-tree-ct { font-family: var(--mono); font-size: 10.5px; color: var(--txt3); }
 .lib-tree-node--sel .lib-tree-ct { color: var(--blue-txt); opacity: .8; }
 
+/* Folder hover actions */
+.lib-tree-folder { position: relative; }
+.lib-tree-actions { display: none; align-items: center; gap: 2px; margin-left: auto; }
+.lib-tree-folder:hover .lib-tree-actions { display: flex; }
+.lib-tree-act { display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; border: 0; background: none; border-radius: 4px; cursor: pointer; color: var(--txt3); padding: 0; }
+.lib-tree-act:hover { background: var(--b); color: var(--txt); }
+.lib-tree-act--del:hover { color: var(--red, #d9534f); }
+
+/* New-folder button */
+.lib-new-folder-btn { display: flex; align-items: center; gap: 6px; background: none; border: 0; color: var(--txt3); font-size: 12px; font-family: inherit; padding: 5px 8px; margin: 4px 0 0 4px; border-radius: 6px; cursor: pointer; width: 100%; }
+.lib-new-folder-btn:hover { color: var(--blue-txt); background: var(--blue-bg); }
+.lib-new-folder-btn svg { color: inherit; }
+.lib-new-folder-input { padding: 3px 8px !important; }
+.lib-folder-inp { flex: 1; background: var(--bg); border: 1px solid var(--accent, var(--b2)); border-radius: 4px; color: var(--fg); font-size: 12px; font-family: inherit; padding: 2px 6px; outline: none; min-width: 0; }
+
 /* Large-icon grid */
 .lib-grid { flex: 1; min-width: 0; overflow: auto; padding: 20px 22px 26px; display: grid; grid-template-columns: repeat(auto-fill, 150px); gap: 6px 10px; align-content: start; }
 .lib-grid-empty { grid-column: 1 / -1; color: var(--txt3); font-size: 12px; text-align: center; padding: 40px 0; }
@@ -1709,6 +1724,8 @@
 .lib-tile:hover { background: var(--bg2); border-color: var(--b); }
 .lib-tile:hover .fp-page { transform: translateY(-2px); }
 .lib-tile--sel { background: var(--blue-bg); border-color: var(--blue-bd); }
+.lib-tile--excl { opacity: .55; }
+.lib-tile--excl:hover { opacity: .75; }
 .lib-meta { display: flex; flex-direction: column; align-items: center; gap: 3px; max-width: 130px; }
 .lib-fname { font-size: 12px; letter-spacing: -.01em; text-align: center; line-height: 1.25; max-width: 130px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lib-tile--sel .lib-fname { color: var(--blue-txt); font-weight: 500; }
@@ -1726,6 +1743,29 @@
 .lib-tile:nth-child(6) { animation-delay: .17s }
 .lib-tile:nth-child(7) { animation-delay: .20s }
 @media (prefers-reduced-motion: reduce) { .lib-tile { animation: none; } .fp-page, .lib-tile, .lib-back { transition: none; } }
+
+/* Context checkbox (top-left of tile) */
+.fp-ctx-cb { position: absolute; top: 8px; left: 8px; z-index: 2; display: none; cursor: pointer; }
+.lib-tile:hover .fp-ctx-cb,
+.lib-tile--excl .fp-ctx-cb { display: flex; }
+.fp-ctx-cb input[type=checkbox] { width: 14px; height: 14px; accent-color: var(--blue-txt, #2563eb); cursor: pointer; }
+
+/* Dots menu (top-right of tile) */
+.fp-dots-wrap { position: absolute; top: 8px; right: 8px; z-index: 3; display: none; }
+.lib-tile:hover .fp-dots-wrap { display: block; }
+.fp-dots { background: var(--bg); border: 1px solid var(--b); border-radius: 5px; cursor: pointer; font-size: 13px; line-height: 1; padding: 1px 5px 3px; color: var(--txt2); font-weight: 700; letter-spacing: .05em; }
+.fp-dots:hover { background: var(--bg2); color: var(--txt); }
+.fp-menu { position: absolute; top: calc(100% + 4px); right: 0; min-width: 140px; background: var(--bg); border: 1px solid var(--b2); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12); z-index: 100; overflow: hidden; }
+.fp-menu-item { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 8px 14px; font-size: 12.5px; font-family: inherit; color: var(--txt); cursor: pointer; }
+.fp-menu-item:hover { background: var(--bg2); }
+.fp-menu-item--danger { color: var(--red, #d9534f); }
+.fp-menu-item--danger:hover { background: #fff0f0; }
+
+/* Move-to-folder popover */
+.lib-move-drop { position: absolute; top: 0; left: 0; z-index: 50; min-width: 130px; background: var(--bg); border: 1px solid var(--b2); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.12); overflow: hidden; }
+.lib-move-title { font-size: 11px; color: var(--txt3); padding: 7px 12px 4px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.lib-move-item { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 7px 12px; font-size: 12.5px; font-family: inherit; color: var(--txt); cursor: pointer; }
+.lib-move-item:hover { background: var(--bg2); }
 
 /* ==========================================================================
    FILE PREVIEW — mini and large document cards
