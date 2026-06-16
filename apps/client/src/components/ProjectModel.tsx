@@ -6,7 +6,7 @@ import MediaGraph from "./mediaGraph/MediaGraph.js";
 import InspectorPanel from "./InspectorPanel.js";
 import { classifyFile } from "../lib/parseContextFile.js";
 import { useDocumentHandlers } from "../hooks/useDocumentHandlers.js";
-import { IconCloudUpload, IconArrowsMaximize, IconArrowsMinimize } from "@tabler/icons-react";
+import { IconCloudUpload, IconArrowsMaximize, IconArrowsMinimize, IconAffiliate } from "@tabler/icons-react";
 
 export default function ProjectModel({ style }: { style?: React.CSSProperties }) {
   const activePlan    = useStore((s) => s.activePlan);
@@ -55,6 +55,7 @@ export default function ProjectModel({ style }: { style?: React.CSSProperties })
       onDrop={handleDrop}
     >
       <div className="model-head">
+        <IconAffiliate size={13} style={{ color: "var(--amber-txt)", flexShrink: 0 }} />
         <button
           className="panel-max-btn"
           onClick={() => setPanelFocus(panelFocus === "model" ? "none" : "model")}

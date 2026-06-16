@@ -370,7 +370,7 @@ export default function ContextPanel({ style }: { style?: React.CSSProperties })
 
           {/* Header */}
           <div className="cp-header">
-            <IconMessage size={13} />
+            <IconMessage size={13} style={{ color: "var(--blue-txt)", flexShrink: 0 }} />
             <span>Context</span>
             {contextFiles.length > 0 && (
               <span className="cp-file-count">

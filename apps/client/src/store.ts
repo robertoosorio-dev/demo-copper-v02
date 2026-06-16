@@ -95,7 +95,7 @@ export const useStore = create<State>((set, get) => ({
 
   selectedNodeId: null,
   graphOrganizeBy: "MediaPartner",
-  graphViewMode: 2,
+  graphViewMode: 1,
   graphSelection: [],
   llmModel: "claude-sonnet-4-6",
   isLoading: false,
@@ -122,7 +122,7 @@ export const useStore = create<State>((set, get) => ({
       selectedNodeId: null,
       graphSelection: [],
       graphOrganizeBy: "MediaPartner",
-      graphViewMode: 2,
+      graphViewMode: 1,
     }),
 
   setActivePlan: (activePlan) =>

@@ -85,15 +85,15 @@ export default function MediaGraph() {
           </div>
         ) : (
           <>
-            {viewMode === 1 && (
+            <div style={viewMode === 1 ? { flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" } : { display: "none" }}>
               <ViewFullGrid model={mediaModel} organizeBy={organizeBy} selection={selection} onSelectionChange={setSelection} />
-            )}
-            {viewMode === 2 && (
+            </div>
+            <div style={viewMode === 2 ? { flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" } : { display: "none" }}>
               <ViewGraphGrid model={mediaModel} organizeBy={organizeBy} selection={selection} onSelectionChange={setSelection} />
-            )}
-            {viewMode === 3 && (
+            </div>
+            <div style={viewMode === 3 ? { flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" } : { display: "none" }}>
               <ViewColumnGraph model={mediaModel} organizeBy={organizeBy} selection={selection} onSelectionChange={setSelection} />
-            )}
+            </div>
           </>
         )}
       </div>

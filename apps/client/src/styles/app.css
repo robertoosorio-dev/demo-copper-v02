@@ -406,15 +406,17 @@
   width: 48px;
   flex-shrink: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  padding-top: 11px;
   background: var(--bg2);
   border-left: 1px solid var(--b);
   cursor: pointer;
   color: var(--txt3);
   transition: background .1s, color .1s;
 }
-.panel-stripe:hover { background: var(--bg3); color: var(--txt); }
+.panel-stripe:hover { background: var(--bg3); }
 .panel-max-btn {
   width: 22px;
   height: 22px;

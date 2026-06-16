@@ -4,7 +4,7 @@ import type { PanelFocus } from "../store.js";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { IconArrowsMaximize, IconArrowsMinimize } from "@tabler/icons-react";
+import { IconArrowsMaximize, IconArrowsMinimize, IconFileText } from "@tabler/icons-react";
 
 export default function PlanDocument({ style }: { style?: React.CSSProperties }) {
   const activePlan          = useStore((s) => s.activePlan);
@@ -37,6 +37,7 @@ export default function PlanDocument({ style }: { style?: React.CSSProperties })
     return (
       <div className="plan-doc" style={style}>
         <div className="plan-doc-header">
+          <IconFileText size={13} style={{ color: "var(--teal-txt)", flexShrink: 0 }} />
           <span className="plan-doc-label">Data Plan · Document</span>
           <MaxBtn />
         </div>
@@ -57,6 +58,7 @@ export default function PlanDocument({ style }: { style?: React.CSSProperties })
   return (
     <div className="plan-doc" style={style}>
       <div className="plan-doc-header">
+        <IconFileText size={13} style={{ color: "var(--teal-txt)", flexShrink: 0 }} />
         <span className="plan-doc-label">Media Plan · Document</span>
         <MaxBtn />
         <button

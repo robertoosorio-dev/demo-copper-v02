@@ -9,6 +9,14 @@ import OutputNode from "./nodes/OutputNode.js";
 import EdgeLayer from "./edges/EdgeLayer.js";
 import type { DataPlanEntity } from "@copper/contracts";
 
+const DP_POSITIONS_KEY = "copper-dp-positions";
+function loadDPPositions(): Record<string, { x: number; y: number }> {
+  try { return JSON.parse(localStorage.getItem(DP_POSITIONS_KEY) ?? "{}"); } catch { return {}; }
+}
+function saveDPPositions(pos: Record<string, { x: number; y: number }>) {
+  try { localStorage.setItem(DP_POSITIONS_KEY, JSON.stringify(pos)); } catch {}
+}
+
 export default function GraphCanvas() {
   const dataModel    = useStore((s) => s.dataModel());
   const selectedNodeId = useStore((s) => s.selectedNodeId);
@@ -19,6 +27,9 @@ export default function GraphCanvas() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [altHeld, setAltHeld] = useState(false);
   const dragActive = useRef(false);
+  const [posOverrides, setPosOverrides] = useState<Record<string, { x: number; y: number }>>(() => loadDPPositions());
+  const draggingNode = useRef<{ id: string; sx: number; sy: number; ox: number; oy: number } | null>(null);
+  const nodeDragged = useRef(false);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => { if (e.key === "Alt") { e.preventDefault(); setAltHeld(true); } };
@@ -28,6 +39,27 @@ export default function GraphCanvas() {
     window.addEventListener("keyup", up);
     window.addEventListener("blur", blur);
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); window.removeEventListener("blur", blur); };
+  }, []);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!draggingNode.current) return;
+      const { id, sx, sy, ox, oy } = draggingNode.current;
+      const dx = e.clientX - sx;
+      const dy = e.clientY - sy;
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) nodeDragged.current = true;
+      setPosOverrides((prev) => ({ ...prev, [id]: { x: ox + dx, y: oy + dy } }));
+    };
+    const onUp = () => {
+      if (draggingNode.current) {
+        draggingNode.current = null;
+        setPosOverrides((prev) => { saveDPPositions(prev); return prev; });
+      }
+      requestAnimationFrame(() => { nodeDragged.current = false; });
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp); };
   }, []);
 
   function handlePanStart(e: React.MouseEvent) {
@@ -54,6 +86,19 @@ export default function GraphCanvas() {
 
   const { nodes: positions, graphWidth, graphHeight, div1X, div2X } = computeLayout(dataModel);
 
+  // Compute canvas extents accounting for dragged node positions
+  const entityIds = dataModel ? Object.keys(dataModel.entities) : [];
+  const dynW = entityIds.reduce((mx, id) => {
+    const base = positions[id];
+    if (!base) return mx;
+    return Math.max(mx, (posOverrides[id] ?? base).x + 320);
+  }, graphWidth);
+  const dynH = entityIds.reduce((mx, id) => {
+    const base = positions[id];
+    if (!base) return mx;
+    return Math.max(mx, (posOverrides[id] ?? base).y + 160);
+  }, graphHeight);
+
   useLayoutEffect(() => {
     const next: Record<string, number> = {};
     for (const [id, el] of Object.entries(nodeRefs.current)) {
@@ -66,8 +111,14 @@ export default function GraphCanvas() {
     return (el: HTMLDivElement | null) => { nodeRefs.current[id] = el; };
   }
 
+  function handleNodeMouseDown(e: React.MouseEvent, id: string, ox: number, oy: number) {
+    e.stopPropagation();
+    nodeDragged.current = false;
+    draggingNode.current = { id, sx: e.clientX, sy: e.clientY, ox, oy };
+  }
+
   function clickNode(id: string) {
-    if (dragActive.current || altHeld) return;
+    if (dragActive.current || altHeld || nodeDragged.current) return;
     selectNode(selectedNodeId === id ? null : id);
   }
 
@@ -90,7 +141,7 @@ export default function GraphCanvas() {
       style={{ cursor: altHeld ? "grab" : "default" }}
       onMouseDown={handlePanStart}
     >
-      <div className="graph-canvas" style={{ width: graphWidth, minHeight: graphHeight, position: "relative" }}>
+      <div className="graph-canvas" style={{ width: dynW, minHeight: dynH, position: "relative" }}>
         {/* Region bands */}
         <div className="region-band input-band"  style={{ left: 0,     width: div1X            }} />
         <div className="region-band flow-band"   style={{ left: div1X, width: div2X - div1X    }} />
@@ -105,6 +156,7 @@ export default function GraphCanvas() {
         {Object.entries(entities).map(([id, entity]) => {
           const pos = positions[id];
           if (!pos) return null;
+          const ep = posOverrides[id] ?? pos;
           const isSelected = selectedNodeId === id;
           const commonProps = {
             id,
@@ -114,7 +166,11 @@ export default function GraphCanvas() {
           };
 
           return (
-            <div key={id} style={{ position: "absolute", left: pos.x, top: pos.y }}>
+            <div
+              key={id}
+              style={{ position: "absolute", left: ep.x, top: ep.y, cursor: "grab" }}
+              onMouseDown={(e) => handleNodeMouseDown(e, id, ep.x, ep.y)}
+            >
               {renderEntity(entity, commonProps)}
             </div>
           );

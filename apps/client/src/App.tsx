@@ -37,18 +37,16 @@ const PLANS = [
   { id: "creative", label: "Creative Plan", icon: IconPalette,   stub: true  },
 ] as const;
 
-function ResizeHandle({ onDelta }: { onDelta: (dx: number) => void }) {
-  const startRef = useRef<number | null>(null);
+function ResizeHandle({ getWidth, min, onResize }: { getWidth: () => number; min: number; onResize: (w: number) => void }) {
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
-    startRef.current = e.clientX;
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startW = getWidth();
     const onMove = (ev: MouseEvent) => {
-      if (startRef.current === null) return;
-      onDelta(ev.clientX - startRef.current);
-      startRef.current = ev.clientX;
+      onResize(Math.max(min, startW + (ev.clientX - startX)));
     };
     const onUp = () => {
-      startRef.current = null;
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
     };
@@ -58,10 +56,10 @@ function ResizeHandle({ onDelta }: { onDelta: (dx: number) => void }) {
   return <div className="panel-resize-handle" onMouseDown={handleMouseDown} />;
 }
 
-function PanelStripe({ icon: Icon, title, onClick }: { icon: React.ComponentType<{ size?: number | string }>; title: string; onClick: () => void }) {
+function PanelStripe({ icon: Icon, color, title, onClick }: { icon: React.ComponentType<{ size?: number | string }>; color?: string; title: string; onClick: () => void }) {
   return (
     <div className="panel-stripe" onClick={onClick} title={title}>
-      <Icon size={16} />
+      <Icon size={15} style={color ? { color } : undefined} />
     </div>
   );
 }
@@ -313,17 +311,17 @@ function MainApp() {
           {panelFocus === "context" ? (
             <>
               <ContextPanel style={{ flex: 1, width: "auto" }} />
-              <PanelStripe icon={IconLayoutColumns} title="Plan & Model" onClick={() => setPanelFocus("none")} />
+              <PanelStripe icon={IconLayoutColumns} title="Plan & Model — click to restore" onClick={() => setPanelFocus("none")} />
             </>
           ) : (
             <>
               {panelFocus !== "none" ? (
-                <PanelStripe icon={IconMessage} title="Chat" onClick={() => setPanelFocus("none")} />
+                <PanelStripe icon={IconMessage} color="var(--blue-txt)" title="Chat — click to restore" onClick={() => setPanelFocus("none")} />
               ) : (
                 <ContextPanel style={{ width: contextW, flexShrink: 0 }} />
               )}
               {panelFocus === "none" && (
-                <ResizeHandle onDelta={(dx) => setContextW(Math.max(180, contextW + dx))} />
+                <ResizeHandle getWidth={() => contextW} min={180} onResize={setContextW} />
               )}
               <div className="plan-region">
                 <div className="tabbar">
@@ -345,15 +343,15 @@ function MainApp() {
 
                 <div className="subpanels">
                   {panelFocus === "model" ? (
-                    <PanelStripe icon={IconFileText} title="Plan" onClick={() => setPanelFocus("none")} />
+                    <PanelStripe icon={IconFileText} color="var(--teal-txt)" title="Plan — click to restore" onClick={() => setPanelFocus("none")} />
                   ) : (
                     <PlanDocument style={panelFocus === "plan" ? { flex: 1, width: "auto" } : { width: planDocW, flexShrink: 0 }} />
                   )}
                   {panelFocus === "none" && (
-                    <ResizeHandle onDelta={(dx) => setPlanDocW(Math.max(180, planDocW + dx))} />
+                    <ResizeHandle getWidth={() => planDocW} min={180} onResize={setPlanDocW} />
                   )}
                   {panelFocus === "plan" ? (
-                    <PanelStripe icon={IconAffiliate} title="Model" onClick={() => setPanelFocus("none")} />
+                    <PanelStripe icon={IconAffiliate} color="var(--amber-txt)" title="Model — click to restore" onClick={() => setPanelFocus("none")} />
                   ) : (
                     <ProjectModel />
                   )}
