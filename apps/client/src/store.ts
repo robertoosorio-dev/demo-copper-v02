@@ -6,7 +6,7 @@ import type { LibraryData } from "./api.js";
 
 export type SaveStatus = "saved" | "saving" | "unsaved";
 export type ActivePlan = "data" | "media" | "creative";
-export type PanelFocus = "none" | "context" | "plan" | "model";
+export type PanelFocus = "none" | "context" | "plan" | "model" | "context-min" | "plan-min" | "model-min";
 
 const PANEL_LAYOUT_KEY = "copper-panel-layout";
 function loadPanelLayout(): { panelFocus: PanelFocus; contextW: number; planDocW: number } {

@@ -313,52 +313,54 @@ function MainApp() {
               <ContextPanel style={{ flex: 1, width: "auto" }} />
               <PanelStripe icon={IconLayoutColumns} title="Plan & Model — click to restore" onClick={() => setPanelFocus("none")} />
             </>
-          ) : (
-            <>
-              {panelFocus !== "none" ? (
-                <PanelStripe icon={IconMessage} color="var(--blue-txt)" title="Chat — click to restore" onClick={() => setPanelFocus("none")} />
-              ) : (
-                <ContextPanel style={{ width: contextW, flexShrink: 0 }} />
-              )}
-              {panelFocus === "none" && (
-                <ResizeHandle getWidth={() => contextW} min={180} onResize={setContextW} />
-              )}
-              <div className="plan-region">
-                <div className="tabbar">
-                  {PLANS.map((p) => (
-                    <div
-                      key={p.id}
-                      className={`tab${activePlan === p.id ? " active" : ""}${p.stub ? " tab--stub" : ""}`}
-                      onClick={() => !p.stub && setActivePlan(p.id as "data" | "media" | "creative")}
-                      title={p.stub ? "Coming soon" : undefined}
-                    >
-                      <p.icon size={13} />
-                      {p.label}
-                    </div>
-                  ))}
-                  <span className="tab-note">tabs are projections of one version · may overlap</span>
+          ) : (() => {
+            const ctxStripe  = panelFocus === "context-min" || panelFocus === "plan" || panelFocus === "model";
+            const ctxResize  = !ctxStripe;
+            const planStripe = panelFocus === "plan-min"   || panelFocus === "model";
+            const modelStripe= panelFocus === "model-min"  || panelFocus === "plan";
+            const planFlex   = panelFocus === "plan"       || panelFocus === "model-min";
+            const subResize  = panelFocus === "none"       || panelFocus === "context-min";
+            return (
+              <>
+                {ctxStripe ? (
+                  <PanelStripe icon={IconMessage} color="var(--blue-txt)" title="Chat — click to restore" onClick={() => setPanelFocus("none")} />
+                ) : (
+                  <ContextPanel style={{ width: contextW, flexShrink: 0 }} />
+                )}
+                {ctxResize && <ResizeHandle getWidth={() => contextW} min={180} onResize={setContextW} />}
+                <div className="plan-region">
+                  <div className="tabbar">
+                    {PLANS.map((p) => (
+                      <div
+                        key={p.id}
+                        className={`tab${activePlan === p.id ? " active" : ""}${p.stub ? " tab--stub" : ""}`}
+                        onClick={() => !p.stub && setActivePlan(p.id as "data" | "media" | "creative")}
+                        title={p.stub ? "Coming soon" : undefined}
+                      >
+                        <p.icon size={13} />
+                        {p.label}
+                      </div>
+                    ))}
+                    <span className="tab-note">tabs are projections of one version · may overlap</span>
+                  </div>
+                  <VersionBar />
+                  <div className="subpanels">
+                    {planStripe ? (
+                      <PanelStripe icon={IconFileText} color="var(--teal-txt)" title="Plan — click to restore" onClick={() => setPanelFocus("none")} />
+                    ) : (
+                      <PlanDocument style={planFlex ? { flex: 1, width: "auto" } : { width: planDocW, flexShrink: 0 }} />
+                    )}
+                    {subResize && <ResizeHandle getWidth={() => planDocW} min={180} onResize={setPlanDocW} />}
+                    {modelStripe ? (
+                      <PanelStripe icon={IconAffiliate} color="var(--amber-txt)" title="Model — click to restore" onClick={() => setPanelFocus("none")} />
+                    ) : (
+                      <ProjectModel />
+                    )}
+                  </div>
                 </div>
-
-                <VersionBar />
-
-                <div className="subpanels">
-                  {panelFocus === "model" ? (
-                    <PanelStripe icon={IconFileText} color="var(--teal-txt)" title="Plan — click to restore" onClick={() => setPanelFocus("none")} />
-                  ) : (
-                    <PlanDocument style={panelFocus === "plan" ? { flex: 1, width: "auto" } : { width: planDocW, flexShrink: 0 }} />
-                  )}
-                  {panelFocus === "none" && (
-                    <ResizeHandle getWidth={() => planDocW} min={180} onResize={setPlanDocW} />
-                  )}
-                  {panelFocus === "plan" ? (
-                    <PanelStripe icon={IconAffiliate} color="var(--amber-txt)" title="Model — click to restore" onClick={() => setPanelFocus("none")} />
-                  ) : (
-                    <ProjectModel />
-                  )}
-                </div>
-              </div>
-            </>
-          )}
+              </>
+            );
+          })()}
         </div>
       )}
     </div>

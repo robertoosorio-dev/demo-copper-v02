@@ -6,7 +6,7 @@ import { CardPlayer } from "./cards/CardPlayer.js";
 import { chat, getLibrary, putLibrary, uploadLibraryContent } from "../api.js";
 import { classifyFile } from "../lib/parseContextFile.js";
 import { useDocumentHandlers } from "../hooks/useDocumentHandlers.js";
-import { IconMessage, IconArrowUp, IconCloudUpload, IconPlus, IconX, IconArrowsMaximize, IconArrowsMinimize } from "@tabler/icons-react";
+import { IconMessage, IconArrowUp, IconCloudUpload, IconPlus, IconX, IconArrowsMaximize, IconArrowsMinimize, IconMinus } from "@tabler/icons-react";
 import type { PanelFocus } from "../store.js";
 import type { Exchange, LibraryFile } from "@copper/contracts";
 import LibraryShelf from "./library/LibraryShelf.js";
@@ -377,13 +377,22 @@ export default function ContextPanel({ style }: { style?: React.CSSProperties })
                 {contextFiles.length} file{contextFiles.length !== 1 ? "s" : ""}
               </span>
             )}
-            <button
-              className={`panel-max-btn${panelFocus === "context" ? " panel-max-btn--active" : ""}`}
-              onClick={() => setPanelFocus(panelFocus === "context" ? "none" : "context")}
-              title={panelFocus === "context" ? "Restore" : "Expand"}
-            >
-              {panelFocus === "context" ? <IconArrowsMinimize size={13} /> : <IconArrowsMaximize size={11} />}
-            </button>
+            <div className="panel-max-btns">
+              {panelFocus === "context" ? (
+                <button className="panel-max-btn panel-max-btn--active" onClick={() => setPanelFocus("none")} title="Restore">
+                  <IconArrowsMinimize size={13} />
+                </button>
+              ) : (
+                <>
+                  <button className="panel-max-btn" onClick={() => setPanelFocus("context-min")} title="Minimize">
+                    <IconMinus size={11} />
+                  </button>
+                  <button className="panel-max-btn" onClick={() => setPanelFocus("context")} title="Maximize">
+                    <IconArrowsMaximize size={11} />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Persistent context files */}

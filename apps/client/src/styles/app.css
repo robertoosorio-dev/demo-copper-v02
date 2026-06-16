@@ -417,6 +417,13 @@
   transition: background .1s, color .1s;
 }
 .panel-stripe:hover { background: var(--bg3); }
+.panel-max-btns {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+}
 .panel-max-btn {
   width: 22px;
   height: 22px;
@@ -429,7 +436,6 @@
   cursor: pointer;
   border-radius: 4px;
   padding: 0;
-  margin-left: auto;
   flex-shrink: 0;
 }
 .panel-max-btn:hover { background: var(--bg3); color: var(--txt); }

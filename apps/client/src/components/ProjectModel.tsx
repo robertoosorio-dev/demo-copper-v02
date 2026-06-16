@@ -6,7 +6,7 @@ import MediaGraph from "./mediaGraph/MediaGraph.js";
 import InspectorPanel from "./InspectorPanel.js";
 import { classifyFile } from "../lib/parseContextFile.js";
 import { useDocumentHandlers } from "../hooks/useDocumentHandlers.js";
-import { IconCloudUpload, IconArrowsMaximize, IconArrowsMinimize, IconAffiliate } from "@tabler/icons-react";
+import { IconCloudUpload, IconArrowsMaximize, IconArrowsMinimize, IconAffiliate, IconMinus } from "@tabler/icons-react";
 
 export default function ProjectModel({ style }: { style?: React.CSSProperties }) {
   const activePlan    = useStore((s) => s.activePlan);
@@ -56,13 +56,22 @@ export default function ProjectModel({ style }: { style?: React.CSSProperties })
     >
       <div className="model-head">
         <IconAffiliate size={13} style={{ color: "var(--amber-txt)", flexShrink: 0 }} />
-        <button
-          className={`panel-max-btn${panelFocus === "model" ? " panel-max-btn--active" : ""}`}
-          onClick={() => setPanelFocus(panelFocus === "model" ? "none" : "model")}
-          title={panelFocus === "model" ? "Restore" : "Expand"}
-        >
-          {panelFocus === "model" ? <IconArrowsMinimize size={13} /> : <IconArrowsMaximize size={11} />}
-        </button>
+        <div className="panel-max-btns">
+          {panelFocus === "model" ? (
+            <button className="panel-max-btn panel-max-btn--active" onClick={() => setPanelFocus("none")} title="Restore">
+              <IconArrowsMinimize size={13} />
+            </button>
+          ) : (
+            <>
+              <button className="panel-max-btn" onClick={() => setPanelFocus("model-min")} title="Minimize">
+                <IconMinus size={11} />
+              </button>
+              <button className="panel-max-btn" onClick={() => setPanelFocus("model")} title="Maximize">
+                <IconArrowsMaximize size={11} />
+              </button>
+            </>
+          )}
+        </div>
       </div>
       {dragOver && (
         <div className="drop-overlay">

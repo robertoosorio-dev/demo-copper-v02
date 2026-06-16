@@ -4,7 +4,7 @@ import type { PanelFocus } from "../store.js";
 import CodeMirror from "@uiw/react-codemirror";
 import { markdown } from "@codemirror/lang-markdown";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { IconArrowsMaximize, IconArrowsMinimize, IconFileText } from "@tabler/icons-react";
+import { IconArrowsMaximize, IconArrowsMinimize, IconFileText, IconMinus } from "@tabler/icons-react";
 
 export default function PlanDocument({ style }: { style?: React.CSSProperties }) {
   const activePlan          = useStore((s) => s.activePlan);
@@ -16,13 +16,22 @@ export default function PlanDocument({ style }: { style?: React.CSSProperties })
   const setPanelFocus       = useStore((s) => s.setPanelFocus);
 
   const MaxBtn = () => (
-    <button
-      className={`panel-max-btn${panelFocus === "plan" ? " panel-max-btn--active" : ""}`}
-      onClick={() => setPanelFocus(panelFocus === "plan" ? "none" : "plan")}
-      title={panelFocus === "plan" ? "Restore" : "Expand"}
-    >
-      {panelFocus === "plan" ? <IconArrowsMinimize size={13} /> : <IconArrowsMaximize size={11} />}
-    </button>
+    <div className="panel-max-btns">
+      {panelFocus === "plan" ? (
+        <button className="panel-max-btn panel-max-btn--active" onClick={() => setPanelFocus("none")} title="Restore">
+          <IconArrowsMinimize size={13} />
+        </button>
+      ) : (
+        <>
+          <button className="panel-max-btn" onClick={() => setPanelFocus("plan-min")} title="Minimize">
+            <IconMinus size={11} />
+          </button>
+          <button className="panel-max-btn" onClick={() => setPanelFocus("plan")} title="Maximize">
+            <IconArrowsMaximize size={11} />
+          </button>
+        </>
+      )}
+    </div>
   );
 
   if (activePlan === "creative") {
