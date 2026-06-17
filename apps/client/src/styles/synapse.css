@@ -1,0 +1,466 @@
+/* ── Synapse Shell Styles ─────────────────────────────────────────────────── */
+
+/* ── Shell root ── */
+.syn-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: #F8FAFC;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* ── Global Rail ── */
+.syn-rail {
+  width: 56px;
+  flex-shrink: 0;
+  background: #fff;
+  border-right: 1px solid #E2E8F0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0 16px;
+  gap: 2px;
+  z-index: 10;
+}
+.syn-rail-logo {
+  width: 32px;
+  height: 32px;
+  background: #2563EB;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+.syn-rail-item {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: none;
+  background: none;
+  color: #94A3B8;
+  cursor: pointer;
+  transition: background 100ms, color 100ms;
+  flex-shrink: 0;
+}
+.syn-rail-item:hover {
+  background: #F1F5F9;
+  color: #334155;
+}
+.syn-rail-item.active {
+  background: #EFF6FF;
+  color: #2563EB;
+}
+.syn-rail-spacer { flex: 1; }
+.syn-rail-divider {
+  width: 28px;
+  height: 1px;
+  background: #E2E8F0;
+  margin: 6px 0;
+}
+
+/* ── Main area ── */
+.syn-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* ── Entity List View ── */
+.syn-entity-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+}
+.syn-entity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid #E2E8F0;
+  flex-shrink: 0;
+}
+.syn-entity-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #334155;
+}
+.syn-btn-primary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #2563EB;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 100ms;
+}
+.syn-btn-primary:hover { background: #1E5FD8; }
+.syn-table-wrap {
+  flex: 1;
+  overflow-y: auto;
+}
+.syn-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.syn-table th {
+  background: #F8FAFC;
+  border-bottom: 1px solid #E2E8F0;
+  padding: 10px 20px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748B;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  position: sticky;
+  top: 0;
+}
+.syn-table td {
+  padding: 13px 20px;
+  border-bottom: 1px solid #F1F5F9;
+  color: #334155;
+}
+.syn-table tbody tr {
+  cursor: pointer;
+  transition: background 80ms;
+}
+.syn-table tbody tr:hover td {
+  background: #F8FAFC;
+}
+.syn-table-name {
+  font-weight: 500;
+  color: #0F172A;
+}
+.syn-empty {
+  padding: 48px 24px;
+  text-align: center;
+  color: #94A3B8;
+  font-size: 13px;
+}
+.syn-table-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-top: 1px solid #E2E8F0;
+  font-size: 12px;
+  color: #64748B;
+  background: #fff;
+  flex-shrink: 0;
+}
+.syn-table-footer-spacer { flex: 1; }
+.syn-pager-btn {
+  background: none;
+  border: 1px solid #E2E8F0;
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #64748B;
+  cursor: pointer;
+  font-family: inherit;
+}
+.syn-pager-btn:hover { border-color: #94A3B8; color: #334155; }
+
+/* ── Campaign Shell ── */
+.syn-campaign-shell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Workflow Top Bar ── */
+.syn-topbar {
+  height: 52px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  border-bottom: 1px solid #E2E8F0;
+  background: #fff;
+  gap: 10px;
+}
+.syn-topbar-back {
+  background: none;
+  border: none;
+  color: #94A3B8;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  transition: background 100ms, color 100ms;
+}
+.syn-topbar-back:hover { background: #F1F5F9; color: #334155; }
+.syn-topbar-brand {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0F172A;
+  letter-spacing: -0.01em;
+}
+.syn-topbar-sep { color: #CBD5E1; font-size: 13px; }
+.syn-topbar-campaign {
+  font-size: 13px;
+  color: #64748B;
+  font-weight: 500;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.syn-stages {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  height: 100%;
+}
+.syn-stage {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 100%;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94A3B8;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 100ms, border-color 100ms;
+  white-space: nowrap;
+}
+.syn-stage:hover { color: #475569; }
+.syn-stage.active { color: #2563EB; border-bottom-color: #2563EB; }
+.syn-stage.completed { color: #059669; }
+.syn-stage-sep { color: #E2E8F0; font-size: 11px; padding: 0 2px; }
+
+/* ── Workflow body ── */
+.syn-workflow-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ── Sub-step Nav ── */
+.syn-subnav {
+  width: 220px;
+  flex-shrink: 0;
+  border-right: 1px solid #E2E8F0;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 0 12px;
+  overflow-y: auto;
+}
+.syn-subnav-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94A3B8;
+  padding: 0 16px 10px;
+}
+.syn-subnav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 16px;
+  font-size: 13px;
+  color: #64748B;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  width: 100%;
+  transition: background 80ms, color 80ms;
+}
+.syn-subnav-item:hover { background: #F8FAFC; color: #334155; }
+.syn-subnav-item.active { background: #EFF6FF; color: #2563EB; font-weight: 500; }
+.syn-subnav-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid #CBD5E1;
+  flex-shrink: 0;
+  transition: background 100ms, border-color 100ms;
+}
+.syn-subnav-dot.active { background: #2563EB; border-color: #2563EB; }
+.syn-subnav-dot.done { background: #059669; border-color: #059669; }
+
+/* ── Center Content ── */
+.syn-center {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #F8FAFC;
+  min-width: 0;
+}
+.syn-center-stub {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #94A3B8;
+}
+.syn-center-stub span {
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+}
+.syn-center-stub p {
+  font-size: 12px;
+  color: #94A3B8;
+}
+
+/* ── Agent Panel ── */
+.syn-agent {
+  width: 320px;
+  flex-shrink: 0;
+  border-left: 1px solid #E2E8F0;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 150ms ease;
+}
+.syn-agent.collapsed {
+  width: 48px;
+  cursor: pointer;
+}
+.syn-agent-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0;
+  gap: 10px;
+  flex: 1;
+}
+.syn-agent-rail-label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94A3B8;
+}
+.syn-agent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid #E2E8F0;
+  flex-shrink: 0;
+}
+.syn-agent-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0F172A;
+}
+.syn-agent-collapse-btn {
+  background: none;
+  border: none;
+  color: #94A3B8;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  transition: background 100ms, color 100ms;
+}
+.syn-agent-collapse-btn:hover { background: #F1F5F9; color: #334155; }
+.syn-agent-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── New Campaign Modal ── */
+.syn-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15,23,42,.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+.syn-modal {
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 22px 26px;
+  min-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 8px 32px rgba(15,23,42,.16);
+}
+.syn-modal-title { font-size: 14px; font-weight: 700; color: #0F172A; }
+.syn-modal-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  color: #0F172A;
+  font-size: 13px;
+  padding: 8px 12px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 100ms;
+}
+.syn-modal-input:focus { border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+.syn-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.syn-modal-btn {
+  font-size: 13px;
+  padding: 7px 16px;
+  border-radius: 6px;
+  border: 1px solid #E2E8F0;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+}
+.syn-modal-btn--cancel { background: #fff; color: #64748B; }
+.syn-modal-btn--cancel:hover { color: #334155; border-color: #CBD5E1; }
+.syn-modal-btn--create { background: #2563EB; color: #fff; border-color: #2563EB; }
+.syn-modal-btn--create:disabled { opacity: 0.45; cursor: default; }
+.syn-modal-error { font-size: 12px; color: #EF4444; }
+
+/* Status chips */
+.syn-status-chip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; display: inline-block; text-transform: capitalize; }
+.syn-status-draft { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+.syn-status-ready { background: #dcfce7; color: #16a34a; border: 1px solid #86efac; }

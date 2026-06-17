@@ -45,6 +45,7 @@ export interface ProposalPayload {
 export interface ProjectContext {
   contextFiles: ContextFile[];
   exchanges: Exchange[];
+  linkedCatalogId?: string | null;
 }
 
 // ── A1. Version ───────────────────────────────────────────────────────────────
@@ -431,4 +432,192 @@ export interface LibraryFile {
 export interface LibraryData {
   files: LibraryFile[];
   folders: string[];           // explicit folder names (supports empty folders)
+}
+
+// ── Brand / Advertiser ────────────────────────────────────────────────────────
+
+export type BrandConfidence = "high" | "medium" | "low";
+export type BrandSeverity   = "suggestion" | "preference" | "required";
+export type BrandStatus     = "draft" | "ready";
+
+export interface BrandField {
+  value: string;
+  confidence: BrandConfidence | null;
+  sourceLabel: string | null;  // exact term used in source doc
+  sourcePage: string | null;   // page/section in source doc
+  confirmed: boolean;
+}
+
+export interface BrandSource {
+  id: string;
+  name: string;
+  type: "file" | "url" | "text";
+  addedAt: string;
+}
+
+export interface ConnectedAccount {
+  platform: "meta" | "dv360" | "tiktok" | "instagram" | string;
+  purpose: "media_buying" | "content_source";
+  accountName: string;
+  accountId: string;
+  status: "connected" | "error" | "pending";
+}
+
+export interface Brand {
+  id: string;
+  name: string;
+  status: BrandStatus;
+  createdAt: string;
+  updatedAt: string;
+  sources: BrandSource[];
+
+  basicDetails: {
+    name: BrandField;
+    industry: BrandField;
+    regions: BrandField;
+    languages: BrandField;
+  };
+
+  guidelines: {
+    promiseAndStory: {
+      brandPromise: BrandField;
+      brandStory: BrandField;
+    };
+    toneAndVoice: {
+      traits: BrandField;
+      personalityAttributes: BrandField;
+      isIsNotFraming: BrandField;
+      // AI-only (stored, not shown in UI)
+      voiceScale: BrandField;
+      situationalTone: BrandField;
+      calibratedCopy: BrandField;
+    };
+    textGuidelines: {
+      dosAndDonts: BrandField;
+      requiredPhrases: BrandField;
+      restrictedLanguage: BrandField;
+    };
+    visualIdentity: {
+      logoVariants: BrandField;
+      colorPalette: BrandField;
+      typographyHierarchy: BrandField;
+      imagetreatment: BrandField; // AI-only
+    };
+    imageGuidelines: {
+      dosAndDonts: BrandField;
+      compositionConstraints: BrandField;
+      styleConstraints: BrandField;
+    };
+    messagingGuidelines: {
+      guidelines: BrandField;
+      tagline: BrandField;
+      taglineUsageRules: BrandField;
+      cobrandingRules: BrandField;
+    };
+  };
+
+  complianceRules: {
+    requiredDisclaimers: BrandField;
+    restrictedTerms: BrandField;
+    legalNotes: BrandField;
+    regulatedCategories: BrandField;
+  };
+
+  connectors: {
+    sourceLinks: string[];
+    connectedAccounts: ConnectedAccount[];
+  };
+
+  aiSeverity: {
+    promiseAndStory: BrandSeverity;
+    toneAndVoice: BrandSeverity;
+    textGuidelines: BrandSeverity;
+    visualIdentity: BrandSeverity;
+    imageGuidelines: BrandSeverity;
+    messagingGuidelines: BrandSeverity;
+    complianceRules: BrandSeverity;
+  };
+}
+
+export interface BrandSummary {
+  id: string;
+  name: string;
+  status: BrandStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ── Product Catalog ───────────────────────────────────────────────────────────
+
+export type CatalogStatus     = "draft" | "ready" | "syncing" | "error";
+export type CatalogSourceType = "file" | "google_sheets" | "gcs" | "s3" | "sftp" | "shopify" | "adobe_s3";
+export type CatalogFieldCategory = "identifier" | "product_info" | "pricing" | "media" | "custom";
+export type CatalogFieldType  = "text" | "number" | "url" | "date" | "boolean";
+export type IssueResolution   = "exclude" | "ignore" | "pending";
+export type IssueType         = "empty_cell" | "broken_url" | "type_mismatch" | "duplicate";
+
+export interface CatalogSource {
+  type: CatalogSourceType;
+  name: string;
+  params: Record<string, string>;
+  connectedAt: string;
+}
+
+export interface CatalogColumn {
+  name: string;
+  included: boolean;
+  detectedType: CatalogFieldType;
+  sampleValues: string[];
+}
+
+export interface CatalogFieldMapping {
+  columnName: string;
+  synapseField: string;
+  category: CatalogFieldCategory;
+  type: CatalogFieldType;
+  aiRecommended: boolean;
+  sampleValue: string;
+}
+
+export interface CatalogIssue {
+  id: string;
+  type: IssueType;
+  column: string;
+  description: string;
+  affectedRows: number;
+  resolution: IssueResolution;
+}
+
+export interface ProductCatalog {
+  id: string;
+  name: string;
+  brandId: string | null;
+  status: CatalogStatus;
+  createdAt: string;
+  updatedAt: string;
+  currentStep: number;
+
+  source: CatalogSource | null;
+  columns: CatalogColumn[];
+  fieldMapping: CatalogFieldMapping[];
+  issues: CatalogIssue[];
+  primaryKey: string | null;
+  compositeKey: string[] | null;
+
+  schedule: "auto" | "manual";
+  syncCadence: string | null;
+
+  rowCount: number;
+  warningCount: number;
+  sampleRows: string[][];
+  headers: string[];
+}
+
+export interface CatalogSummary {
+  id: string;
+  name: string;
+  status: CatalogStatus;
+  rowCount: number;
+  createdAt: string;
+  updatedAt: string;
 }

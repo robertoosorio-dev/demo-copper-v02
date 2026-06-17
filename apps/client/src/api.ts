@@ -1,4 +1,4 @@
-import type { Version, ReasoningLogEntry, Exchange, LibraryFile } from "@copper/contracts";
+import type { Version, ReasoningLogEntry, Exchange, LibraryFile, Brand, BrandSummary } from "@copper/contracts";
 import type { WizardShape } from "./wizardStandin.js";
 
 const BASE = "/api";
@@ -337,5 +337,101 @@ export function adminQAPropose(
 ): Promise<QAJudgeResult> {
   return post("/admin/qa/propose", {
     prompt, expected, ops: run.ops, reasoning: run.reasoning, kbFiles,
+  });
+}
+
+// ── Brand API ─────────────────────────────────────────────────────────────────
+export type { Brand, BrandSummary };
+
+export function listBrands(): Promise<BrandSummary[]> {
+  return get<BrandSummary[]>("/brands");
+}
+
+export function createBrand(name: string): Promise<Brand> {
+  return post<Brand>("/brands", { name });
+}
+
+export function loadBrand(id: string): Promise<Brand> {
+  return get<Brand>(`/brands/${id}`);
+}
+
+export function saveBrand(id: string, brand: Brand): Promise<Brand> {
+  return put<Brand>(`/brands/${id}`, brand);
+}
+
+export interface ExtractedField {
+  value: string;
+  confidence: "high" | "medium" | "low";
+  sourceLabel: string;
+  sourcePage: string | null;
+}
+
+export interface ExtractResponse {
+  message: string;
+  fields: Record<string, ExtractedField>;
+}
+
+export async function extractBrand(
+  id: string,
+  opts: { message?: string; file?: File; llmModel?: string },
+): Promise<ExtractResponse> {
+  const body: Record<string, unknown> = {
+    llmModel: opts.llmModel ?? "claude-sonnet-4-6",
+    message: opts.message ?? "",
+  };
+  if (opts.file) {
+    body.fileName = opts.file.name;
+    body.mimeType = opts.file.type || "application/octet-stream";
+    body.fileBase64 = arrayBufferToBase64(await opts.file.arrayBuffer());
+  }
+  return post<ExtractResponse>(`/brands/${id}/extract`, body);
+}
+
+// ── Catalog API ───────────────────────────────────────────────────────────────
+import type { ProductCatalog, CatalogSummary } from "@copper/contracts";
+export type { ProductCatalog, CatalogSummary };
+
+export function listCatalogs(): Promise<CatalogSummary[]> {
+  return get<CatalogSummary[]>("/catalogs");
+}
+
+export function createCatalog(): Promise<ProductCatalog> {
+  return post<ProductCatalog>("/catalogs", {});
+}
+
+export function loadCatalog(id: string): Promise<ProductCatalog> {
+  return get<ProductCatalog>(`/catalogs/${id}`);
+}
+
+export function saveCatalog(id: string, catalog: ProductCatalog): Promise<ProductCatalog> {
+  return put<ProductCatalog>(`/catalogs/${id}`, catalog);
+}
+
+export interface DetectResult {
+  catalog: ProductCatalog;
+  headers: string[];
+  sampleRows: string[][];
+}
+
+function arrayBufferToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  const chunk = 8192;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+export async function detectCatalogCSV(
+  id: string,
+  file: File,
+  llmModel?: string,
+): Promise<DetectResult> {
+  const buf = await file.arrayBuffer();
+  return post<DetectResult>(`/catalogs/${id}/detect`, {
+    csvBase64: arrayBufferToBase64(buf),
+    fileName:  file.name,
+    llmModel:  llmModel ?? "claude-sonnet-4-6",
   });
 }

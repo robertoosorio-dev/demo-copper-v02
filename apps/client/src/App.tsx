@@ -1,68 +1,20 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Routes, Route, Link, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { useStore } from "./store.js";
-import { APP_VERSION } from "./version.js";
-import { listProjects, loadProject, createProject } from "./api.js";
+import { listProjects, loadProject, createProject, createBrand, loadBrand, createCatalog, loadCatalog } from "./api.js";
 import { getWizardShape } from "./wizardStandin.js";
-import ContextPanel from "./components/ContextPanel.js";
-import PlanDocument from "./components/PlanDocument.js";
-import ProjectModel from "./components/ProjectModel.js";
-import VersionBar from "./components/VersionBar.js";
+import WizardSurface from "./components/WizardSurface.js";
 import QAViewer from "./components/QAViewer.js";
 import HistoryPanel from "./components/HistoryPanel.js";
 import AdminPanel from "./components/AdminPanel.js";
-import WizardSurface from "./components/WizardSurface.js";
-import {
-  IconAffiliate,
-  IconDatabase,
-  IconChartBar,
-  IconPalette,
-  IconChevronDown,
-  IconPlus,
-  IconCloud,
-  IconCloudCheck,
-  IconCloudX,
-  IconBug,
-  IconHistory,
-  IconSettings,
-  IconWand,
-  IconMessage,
-  IconFileText,
-  IconLayoutColumns,
-} from "@tabler/icons-react";
-
-const PLANS = [
-  { id: "data",     label: "Data Plan",     icon: IconDatabase,  stub: false },
-  { id: "media",    label: "Media Plan",    icon: IconChartBar,  stub: false },
-  { id: "creative", label: "Creative Plan", icon: IconPalette,   stub: true  },
-] as const;
-
-function ResizeHandle({ getWidth, min, onResize }: { getWidth: () => number; min: number; onResize: (w: number) => void }) {
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const startX = e.clientX;
-    const startW = getWidth();
-    const onMove = (ev: MouseEvent) => {
-      onResize(Math.max(min, startW + (ev.clientX - startX)));
-    };
-    const onUp = () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-    };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  };
-  return <div className="panel-resize-handle" onMouseDown={handleMouseDown} />;
-}
-
-function PanelStripe({ icon: Icon, color, title, onClick }: { icon: React.ComponentType<{ size?: number | string; style?: React.CSSProperties }>; color?: string; title: string; onClick: () => void }) {
-  return (
-    <div className="panel-stripe" onClick={onClick} title={title}>
-      <Icon size={15} style={color ? { color } : undefined} />
-    </div>
-  );
-}
+import GlobalRail from "./components/shell/GlobalRail.js";
+import WorkflowTopBar from "./components/shell/WorkflowTopBar.js";
+import SubStepNav from "./components/shell/SubStepNav.js";
+import AgentPanel from "./components/shell/AgentPanel.js";
+import EntityListView from "./components/shell/EntityListView.js";
+import CenterContent from "./components/shell/CenterContent.js";
+import BrandSubFlow from "./components/brand/BrandSubFlow.js";
+import CatalogSubFlow from "./components/catalog/CatalogSubFlow.js";
 
 function useGlobalDropGuard() {
   useEffect(() => {
@@ -76,69 +28,13 @@ function useGlobalDropGuard() {
   }, []);
 }
 
-function SaveButton({ status, onSave }: { status: string; onSave: () => void }) {
-  if (status === "saving")
-    return <span className="save-chip save-chip--saving"><IconCloud size={12} /> Saving…</span>;
-  if (status === "saved")
-    return <span className="save-chip save-chip--saved"><IconCloudCheck size={12} /> Saved</span>;
-  return (
-    <button className="save-chip save-chip--unsaved save-chip--btn" onClick={onSave}>
-      <IconCloudX size={12} /> Save
-    </button>
-  );
-}
-
-function ProjectPicker({
-  projects,
-  currentId,
-  onSelect,
-  onNew,
+function NewCampaignModal({
+  onClose,
+  onCreate,
 }: {
-  projects: Array<{ id: string; name: string }>;
-  currentId: string | null;
-  onSelect: (id: string) => void;
-  onNew: () => void;
+  onClose: () => void;
+  onCreate: (name: string) => Promise<void>;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const current = projects.find((p) => p.id === currentId);
-
-  useEffect(() => {
-    const h = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
-
-  return (
-    <div className="project-picker" ref={ref}>
-      <button className="project-picker-btn" onClick={() => setOpen((v) => !v)}>
-        <span className="project-picker-name">{current?.name ?? "No project"}</span>
-        <IconChevronDown size={12} />
-      </button>
-      {open && (
-        <div className="project-picker-menu">
-          {projects.map((p) => (
-            <div
-              key={p.id}
-              className={`project-picker-item${p.id === currentId ? " active" : ""}`}
-              onClick={() => { onSelect(p.id); setOpen(false); }}
-            >
-              {p.name}
-            </div>
-          ))}
-          <div className="project-picker-divider" />
-          <div className="project-picker-item project-picker-new" onClick={() => { onNew(); setOpen(false); }}>
-            <IconPlus size={12} /> New project
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate: (name: string) => Promise<void> }) {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -155,30 +51,39 @@ function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate:
     try {
       await onCreate(trimmed);
     } catch (err) {
-      setError((err as Error).message ?? "Failed to create project");
+      setError((err as Error).message ?? "Failed to create campaign");
       setBusy(false);
     }
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-title">New project</div>
+    <div className="syn-modal-backdrop" onClick={onClose}>
+      <div className="syn-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="syn-modal-title">New campaign</div>
         <form onSubmit={handleSubmit}>
           <input
             ref={inputRef}
-            className="modal-input"
-            placeholder="Project name"
+            className="syn-modal-input"
+            placeholder="Campaign name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Escape" && onClose()}
           />
-          {error && <div className="modal-error">{error}</div>}
-          <div className="modal-actions">
-            <button type="button" className="modal-btn modal-btn--cancel" onClick={onClose} disabled={busy}>
+          {error && <div className="syn-modal-error">{error}</div>}
+          <div className="syn-modal-actions">
+            <button
+              type="button"
+              className="syn-modal-btn syn-modal-btn--cancel"
+              onClick={onClose}
+              disabled={busy}
+            >
               Cancel
             </button>
-            <button type="submit" className="modal-btn modal-btn--create" disabled={!name.trim() || busy}>
+            <button
+              type="submit"
+              className="syn-modal-btn syn-modal-btn--create"
+              disabled={!name.trim() || busy}
+            >
               {busy ? "Creating…" : "Create"}
             </button>
           </div>
@@ -191,23 +96,27 @@ function NewProjectModal({ onClose, onCreate }: { onClose: () => void; onCreate:
 function MainApp() {
   useGlobalDropGuard();
 
-  const location = useLocation();
-  const version           = useStore((s) => s.version);
-  const availableProjects = useStore((s) => s.availableProjects);
-  const saveStatus        = useStore((s) => s.saveStatus);
-  const activePlan        = useStore((s) => s.activePlan);
-  const setActivePlan     = useStore((s) => s.setActivePlan);
+  const synapseEntity        = useStore((s) => s.synapseEntity);
+  const campaignOpen         = useStore((s) => s.campaignOpen);
+  const setCampaignOpen      = useStore((s) => s.setCampaignOpen);
+  const brandOpen            = useStore((s) => s.brandOpen);
+  const setBrandOpen         = useStore((s) => s.setBrandOpen);
+  const activeBrand          = useStore((s) => s.activeBrand);
+  const setActiveBrand       = useStore((s) => s.setActiveBrand);
+  const catalogOpen          = useStore((s) => s.catalogOpen);
+  const setCatalogOpen       = useStore((s) => s.setCatalogOpen);
+  const activeCatalog        = useStore((s) => s.activeCatalog);
+  const setActiveCatalog     = useStore((s) => s.setActiveCatalog);
+  const availableProjects    = useStore((s) => s.availableProjects);
   const setAvailableProjects = useStore((s) => s.setAvailableProjects);
-  const loadVersionStore  = useStore((s) => s.loadVersion);
-  const saveNow           = useStore((s) => s.saveNow);
-  const openWizard        = useStore((s) => s.openWizard);
-  const panelFocus        = useStore((s) => s.panelFocus);
-  const contextW          = useStore((s) => s.contextW);
-  const planDocW          = useStore((s) => s.planDocW);
-  const setPanelFocus     = useStore((s) => s.setPanelFocus);
-  const setContextW       = useStore((s) => s.setContextW);
-  const setPlanDocW       = useStore((s) => s.setPlanDocW);
-  const [showNewProject, setShowNewProject] = useState(false);
+  const loadVersionStore     = useStore((s) => s.loadVersion);
+  const openWizard           = useStore((s) => s.openWizard);
+
+  const [showNewCampaign, setShowNewCampaign] = useState(false);
+  const [showNewBrand, setShowNewBrand]       = useState(false);
+  const [newBrandName, setNewBrandName]       = useState("");
+  const [newBrandBusy, setNewBrandBusy]       = useState(false);
+  const [newCatalogBusy, setNewCatalogBusy]   = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -225,144 +134,189 @@ function MainApp() {
     init();
   }, []);
 
-  async function handleSelectProject(id: string) {
-    try {
-      const v = await loadProject(id);
-      loadVersionStore(v);
-    } catch (err) {
-      console.error("[app] load project failed:", err);
-    }
-  }
-
-  async function handleCreateProject(name: string) {
+  async function handleCreateCampaign(name: string) {
     const newVersion = await createProject(name);
     const list = await listProjects();
     setAvailableProjects(list);
     loadVersionStore(newVersion);
-    setShowNewProject(false);
+    setShowNewCampaign(false);
+    setCampaignOpen(true);
   }
 
-  const isQA      = location.pathname === "/qa";
-  const isHistory = location.pathname === "/history";
-  const isAdmin   = location.pathname === "/admin";
+  async function handleCreateBrand() {
+    const trimmed = newBrandName.trim();
+    if (!trimmed || newBrandBusy) return;
+    setNewBrandBusy(true);
+    try {
+      const brand = await createBrand(trimmed);
+      setActiveBrand(brand);
+      setBrandOpen(true);
+      setShowNewBrand(false);
+      setNewBrandName("");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setNewBrandBusy(false);
+    }
+  }
+
+  async function handleOpenBrand(id: string) {
+    try {
+      const brand = await loadBrand(id);
+      setActiveBrand(brand);
+      setBrandOpen(true);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function handleCreateCatalog() {
+    if (newCatalogBusy) return;
+    setNewCatalogBusy(true);
+    try {
+      const catalog = await createCatalog();
+      setActiveCatalog(catalog);
+      setCatalogOpen(true);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setNewCatalogBusy(false);
+    }
+  }
+
+  async function handleOpenCatalog(id: string) {
+    try {
+      const catalog = await loadCatalog(id);
+      setActiveCatalog(catalog);
+      setCatalogOpen(true);
+    } catch (err) {
+      console.error(err);
+    }
+  }
 
   return (
-    <div className="app-shell">
-      {showNewProject && (
-        <NewProjectModal
-          onClose={() => setShowNewProject(false)}
-          onCreate={handleCreateProject}
-        />
-      )}
-
+    <div className="syn-shell">
       {/* Wizard modal — overlays everything */}
       <WizardSurface />
 
-      <div className="topbar">
-        <Link to="/" className="brand" title="Back to main view">
-          <IconAffiliate size={16} />
-          CoPPER
-          <span className="brand-v">v2</span>
-        </Link>
-        <span className="build-version">{APP_VERSION}</span>
-        <button className="icon-btn icon-btn--demo-wiz" onClick={() => openWizard(getWizardShape())} title="Demo wizard (stand-in)">
-          <IconWand size={14} />
-          Demo Wizard
-        </button>
-        <div className="sep" />
+      {showNewCampaign && (
+        <NewCampaignModal
+          onClose={() => setShowNewCampaign(false)}
+          onCreate={handleCreateCampaign}
+        />
+      )}
 
-        {version ? (
-          <ProjectPicker
-            projects={availableProjects}
-            currentId={version.id}
-            onSelect={handleSelectProject}
-            onNew={() => setShowNewProject(true)}
-          />
-        ) : (
-          <span className="proj-name muted">Loading…</span>
-        )}
-
-        <SaveButton status={saveStatus} onSave={saveNow} />
-
-        <div className="topbar-right">
-          <Link to={isHistory ? "/" : "/history"} className={`icon-btn${isHistory ? " active" : ""}`} title={isHistory ? "Back to main view" : "Version History"}>
-            <IconHistory size={14} />
-            Versions
-          </Link>
-<Link to={isQA ? "/" : "/qa"} className={`icon-btn${isQA ? " active" : ""}`} title={isQA ? "Back to main view" : "Transaction / QA Viewer"}>
-            <IconBug size={14} />
-            Reasoning
-          </Link>
-          <Link to={isAdmin ? "/" : "/admin"} className={`icon-btn icon-btn--admin${isAdmin ? " active" : ""}`} title={isAdmin ? "Back to main view" : "Admin"}>
-            <IconSettings size={14} />
-            Admin
-          </Link>
-        </div>
-      </div>
-
-      {isAdmin ? (
-        <AdminPanel />
-      ) : isHistory ? (
-        <HistoryPanel />
-      ) : isQA ? (
-        <QAViewer />
-      ) : (
-        <div className="layout">
-          {panelFocus === "context" ? (
-            <>
-              <ContextPanel style={{ flex: 1, width: "auto" }} />
-              <PanelStripe icon={IconLayoutColumns} title="Plan & Model — click to restore" onClick={() => setPanelFocus("none")} />
-            </>
-          ) : (() => {
-            const ctxStripe  = panelFocus === "context-min" || panelFocus === "plan" || panelFocus === "model";
-            const ctxResize  = !ctxStripe;
-            const planStripe = panelFocus === "plan-min"   || panelFocus === "model";
-            const modelStripe= panelFocus === "model-min"  || panelFocus === "plan";
-            const planFlex   = panelFocus === "plan"       || panelFocus === "model-min";
-            const subResize  = panelFocus === "none"       || panelFocus === "context-min";
-            return (
-              <>
-                {ctxStripe ? (
-                  <PanelStripe icon={IconMessage} color="var(--blue-txt)" title="Chat — click to restore" onClick={() => setPanelFocus("none")} />
-                ) : (
-                  <ContextPanel style={{ width: contextW, flexShrink: 0 }} />
-                )}
-                {ctxResize && <ResizeHandle getWidth={() => contextW} min={180} onResize={setContextW} />}
-                <div className="plan-region">
-                  <div className="tabbar">
-                    {PLANS.map((p) => (
-                      <div
-                        key={p.id}
-                        className={`tab${activePlan === p.id ? " active" : ""}${p.stub ? " tab--stub" : ""}`}
-                        onClick={() => !p.stub && setActivePlan(p.id as "data" | "media" | "creative")}
-                        title={p.stub ? "Coming soon" : undefined}
-                      >
-                        <p.icon size={13} />
-                        {p.label}
-                      </div>
-                    ))}
-                    <span className="tab-note">tabs are projections of one version · may overlap</span>
-                  </div>
-                  <VersionBar />
-                  <div className="subpanels">
-                    {planStripe ? (
-                      <PanelStripe icon={IconFileText} color="var(--teal-txt)" title="Plan — click to restore" onClick={() => setPanelFocus("none")} />
-                    ) : (
-                      <PlanDocument style={planFlex ? { flex: 1, width: "auto" } : { width: planDocW, flexShrink: 0 }} />
-                    )}
-                    {subResize && <ResizeHandle getWidth={() => planDocW} min={180} onResize={setPlanDocW} />}
-                    {modelStripe ? (
-                      <PanelStripe icon={IconAffiliate} color="var(--amber-txt)" title="Model — click to restore" onClick={() => setPanelFocus("none")} />
-                    ) : (
-                      <ProjectModel />
-                    )}
-                  </div>
-                </div>
-              </>
-            );
-          })()}
+      {showNewBrand && (
+        <div className="syn-modal-backdrop" onClick={() => setShowNewBrand(false)}>
+          <div className="syn-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="syn-modal-title">New brand</div>
+            <input
+              className="syn-modal-input"
+              placeholder="Brand name"
+              value={newBrandName}
+              autoFocus
+              onChange={(e) => setNewBrandName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleCreateBrand();
+                if (e.key === "Escape") setShowNewBrand(false);
+              }}
+            />
+            <div className="syn-modal-actions">
+              <button
+                className="syn-modal-btn syn-modal-btn--cancel"
+                onClick={() => setShowNewBrand(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="syn-modal-btn syn-modal-btn--create"
+                disabled={!newBrandName.trim() || newBrandBusy}
+                onClick={handleCreateBrand}
+              >
+                {newBrandBusy ? "Creating…" : "Create"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
+
+      {/* Global left rail */}
+      <GlobalRail />
+
+      {/* Main content area */}
+      <div className="syn-main">
+        {campaignOpen && synapseEntity === "campaigns" ? (
+          // ── Campaign shell (4-zone layout) ──
+          <div className="syn-campaign-shell">
+            <WorkflowTopBar onBack={() => setCampaignOpen(false)} />
+            <div className="syn-workflow-body">
+              <SubStepNav />
+              <div className="syn-center">
+                <CenterContent />
+              </div>
+              <AgentPanel />
+            </div>
+          </div>
+        ) : brandOpen && synapseEntity === "brands" && activeBrand ? (
+          // ── Brand sub-flow ──
+          <BrandSubFlow
+            brand={activeBrand}
+            onBack={() => setBrandOpen(false)}
+          />
+        ) : catalogOpen && synapseEntity === "catalogs" && activeCatalog ? (
+          // ── Catalog sub-flow ──
+          <CatalogSubFlow
+            catalog={activeCatalog}
+            onBack={() => setCatalogOpen(false)}
+          />
+        ) : (
+          // ── Entity list view ──
+          <EntityListView
+            entity={synapseEntity}
+            onOpenCampaign={() => setCampaignOpen(true)}
+            onOpenBrand={handleOpenBrand}
+            onOpenCatalog={handleOpenCatalog}
+            onNew={() => {
+              if (synapseEntity === "campaigns") setShowNewCampaign(true);
+              if (synapseEntity === "brands") setShowNewBrand(true);
+              if (synapseEntity === "catalogs") handleCreateCatalog();
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AdminShell() {
+  return (
+    <div className="syn-shell">
+      <GlobalRail />
+      <div className="syn-main">
+        <AdminPanel />
+      </div>
+    </div>
+  );
+}
+
+function HistoryShell() {
+  return (
+    <div className="syn-shell">
+      <GlobalRail />
+      <div className="syn-main">
+        <HistoryPanel />
+      </div>
+    </div>
+  );
+}
+
+function QAShell() {
+  return (
+    <div className="syn-shell">
+      <GlobalRail />
+      <div className="syn-main">
+        <QAViewer />
+      </div>
     </div>
   );
 }
@@ -370,7 +324,10 @@ function MainApp() {
 export default function App() {
   return (
     <Routes>
-      <Route path="/*" element={<MainApp />} />
+      <Route path="/admin"   element={<AdminShell />}   />
+      <Route path="/history" element={<HistoryShell />} />
+      <Route path="/qa"      element={<QAShell />}      />
+      <Route path="/*"       element={<MainApp />}      />
     </Routes>
   );
 }

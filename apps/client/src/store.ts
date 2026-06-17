@@ -1,12 +1,14 @@
 import { create } from "zustand";
-import type { Version, DataPlanModel, MediaPlanModel, Exchange, LibraryFile } from "@copper/contracts";
+import type { Version, DataPlanModel, MediaPlanModel, Exchange, LibraryFile, Brand, ProductCatalog } from "@copper/contracts";
 import { saveProject as apiSaveProject } from "./api.js";
-import type { WizardShape } from "./wizardStandin.js";
+import type { WizardShape, BrandSummary, CatalogSummary } from "./api.js";
 import type { LibraryData } from "./api.js";
 
 export type SaveStatus = "saved" | "saving" | "unsaved";
 export type ActivePlan = "data" | "media" | "creative";
 export type PanelFocus = "none" | "context" | "plan" | "model" | "context-min" | "plan-min" | "model-min";
+export type SynapseEntity = "campaigns" | "brands" | "catalogs" | "audiences" | "assets" | "creatives";
+export type CampaignStage = "blueprint" | "regen" | "preview_approve" | "launch";
 
 const PANEL_LAYOUT_KEY = "copper-panel-layout";
 function loadPanelLayout(): { panelFocus: PanelFocus; contextW: number; planDocW: number } {
@@ -44,6 +46,23 @@ interface State {
   contextW: number;
   planDocW: number;
 
+  // Synapse shell navigation
+  synapseEntity: SynapseEntity;
+  campaignOpen: boolean;
+  synapseStage: CampaignStage;
+  synapseSubStep: string;
+  agentOpen: boolean;
+
+  // Brand
+  brandList: BrandSummary[];
+  activeBrand: Brand | null;
+  brandOpen: boolean;
+
+  // Catalog
+  catalogList: CatalogSummary[];
+  activeCatalog: ProductCatalog | null;
+  catalogOpen: boolean;
+
   // ── Derived accessors (computed from version) ──────────────────────────────
   dataModel: () => DataPlanModel | null;
   mediaModel: () => MediaPlanModel | null;
@@ -74,10 +93,25 @@ interface State {
   setContextW: (w: number) => void;
   setPlanDocW: (w: number) => void;
 
+  setSynapseEntity: (e: SynapseEntity) => void;
+  setCampaignOpen: (open: boolean) => void;
+  setSynapseStage: (s: CampaignStage) => void;
+  setSynapseSubStep: (s: string) => void;
+  setAgentOpen: (open: boolean) => void;
+
+  setBrandList: (list: BrandSummary[]) => void;
+  setActiveBrand: (brand: Brand | null) => void;
+  setBrandOpen: (open: boolean) => void;
+
+  setCatalogList: (list: CatalogSummary[]) => void;
+  setActiveCatalog: (catalog: ProductCatalog | null) => void;
+  setCatalogOpen: (open: boolean) => void;
+
   updateDataDocument: (doc: string) => void;
   updateMediaDocument: (doc: string) => void;
   appendExchanges: (exchanges: Exchange[]) => void;
   setVersion: (v: Version) => void;
+  patchVersion: (v: Version) => void;
   // Called when server returns ops result — updates plans but preserves client exchanges, marks unsaved
   mergeServerVersion: (v: Version) => void;
 
@@ -104,6 +138,23 @@ export const useStore = create<State>((set, get) => ({
   libraryFolders: [],
   libraryOpen: false,
   ...loadPanelLayout(),
+
+  // Synapse shell state
+  synapseEntity: "campaigns" as SynapseEntity,
+  campaignOpen: false,
+  synapseStage: "blueprint" as CampaignStage,
+  synapseSubStep: "brand_brief",
+  agentOpen: true,
+
+  // Brand state
+  brandList: [],
+  activeBrand: null,
+  brandOpen: false,
+
+  // Catalog state
+  catalogList: [],
+  activeCatalog: null,
+  catalogOpen: false,
 
   // Derived — read from version each time (no redundant mirrors)
   dataModel: () => get().version?.plans.data.model ?? null,
@@ -172,6 +223,24 @@ export const useStore = create<State>((set, get) => ({
     set({ planDocW });
   },
 
+  setSynapseEntity: (synapseEntity) => set({ synapseEntity }),
+  setCampaignOpen: (campaignOpen) => set({ campaignOpen }),
+  setBrandList: (brandList) => set({ brandList }),
+  setActiveBrand: (activeBrand) => set({ activeBrand }),
+  setBrandOpen: (brandOpen) => set({ brandOpen }),
+  setCatalogList: (catalogList) => set({ catalogList }),
+  setActiveCatalog: (activeCatalog) => set({ activeCatalog }),
+  setCatalogOpen: (catalogOpen) => set({ catalogOpen }),
+  setSynapseStage: (synapseStage) => set({
+    synapseStage,
+    synapseSubStep: synapseStage === "blueprint"       ? "brand_brief"
+                  : synapseStage === "regen"           ? "assets"
+                  : synapseStage === "preview_approve" ? "compliance"
+                  : "media_plan",
+  }),
+  setSynapseSubStep: (synapseSubStep) => set({ synapseSubStep }),
+  setAgentOpen: (agentOpen) => set({ agentOpen }),
+
   updateDataDocument: (doc) =>
     set((s) => {
       if (!s.version) return {};
@@ -197,6 +266,7 @@ export const useStore = create<State>((set, get) => ({
     }),
 
   setVersion: (v) => set({ version: v, saveStatus: "saved" }),
+  patchVersion: (v) => set({ version: v, saveStatus: "unsaved" }),
 
   mergeServerVersion: (v) =>
     set((s) => ({
