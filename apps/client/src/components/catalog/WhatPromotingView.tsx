@@ -185,16 +185,17 @@ export default function WhatPromotingView() {
   const [loading, setLoading]               = useState(false);
 
   const linkedId = version?.context?.linkedCatalogId;
+  const campaignBrandId = (version?.context as any)?.brief?.brandId as string | undefined;
 
-  // Load catalog list and resolve the linked catalog
+  // Load catalog list filtered by the campaign's brand, and resolve the linked catalog
   useEffect(() => {
-    listCatalogs().then((list) => {
+    listCatalogs(campaignBrandId).then((list) => {
       setCatalogList(list);
       if (linkedId && !linkedCatalog) {
         loadCatalog(linkedId).then(setLinkedCatalog).catch(console.error);
       }
     }).catch(console.error);
-  }, [linkedId]);
+  }, [linkedId, campaignBrandId]);
 
   async function handlePick(summary: CatalogSummary) {
     setLoading(true);
@@ -216,7 +217,7 @@ export default function WhatPromotingView() {
   async function handleCreateNew() {
     setLoading(true);
     try {
-      const catalog = await createCatalog();
+      const catalog = await createCatalog(campaignBrandId);
       setActiveCatalog(catalog);
       setOpeningCatalog(catalog);
     } finally {

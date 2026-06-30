@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { useStore } from "./store.js";
-import { listProjects, loadProject, createProject, createBrand, loadBrand, createCatalog, loadCatalog } from "./api.js";
+import { listCampaigns, loadCampaign, createCampaign, createBrand, loadBrand, listBrands, createCatalog, loadCatalog, createAudience, loadAudience } from "./api.js";
 import { getWizardShape } from "./wizardStandin.js";
 import WizardSurface from "./components/WizardSurface.js";
 import QAViewer from "./components/QAViewer.js";
@@ -15,6 +15,7 @@ import EntityListView from "./components/shell/EntityListView.js";
 import CenterContent from "./components/shell/CenterContent.js";
 import BrandSubFlow from "./components/brand/BrandSubFlow.js";
 import CatalogSubFlow from "./components/catalog/CatalogSubFlow.js";
+import AudienceSubFlow from "./components/audience/AudienceSubFlow.js";
 
 function useGlobalDropGuard() {
   useEffect(() => {
@@ -97,18 +98,24 @@ function MainApp() {
   useGlobalDropGuard();
 
   const synapseEntity        = useStore((s) => s.synapseEntity);
+  const synapseSubStep       = useStore((s) => s.synapseSubStep);
   const campaignOpen         = useStore((s) => s.campaignOpen);
   const setCampaignOpen      = useStore((s) => s.setCampaignOpen);
   const brandOpen            = useStore((s) => s.brandOpen);
   const setBrandOpen         = useStore((s) => s.setBrandOpen);
   const activeBrand          = useStore((s) => s.activeBrand);
   const setActiveBrand       = useStore((s) => s.setActiveBrand);
+  const setBrandList         = useStore((s) => s.setBrandList);
   const catalogOpen          = useStore((s) => s.catalogOpen);
   const setCatalogOpen       = useStore((s) => s.setCatalogOpen);
   const activeCatalog        = useStore((s) => s.activeCatalog);
   const setActiveCatalog     = useStore((s) => s.setActiveCatalog);
-  const availableProjects    = useStore((s) => s.availableProjects);
-  const setAvailableProjects = useStore((s) => s.setAvailableProjects);
+  const audienceOpen         = useStore((s) => s.audienceOpen);
+  const setAudienceOpen      = useStore((s) => s.setAudienceOpen);
+  const activeAudience       = useStore((s) => s.activeAudience);
+  const setActiveAudience    = useStore((s) => s.setActiveAudience);
+  const availableCampaigns    = useStore((s) => s.availableCampaigns);
+  const setAvailableCampaigns = useStore((s) => s.setAvailableCampaigns);
   const loadVersionStore     = useStore((s) => s.loadVersion);
   const openWizard           = useStore((s) => s.openWizard);
 
@@ -116,15 +123,16 @@ function MainApp() {
   const [showNewBrand, setShowNewBrand]       = useState(false);
   const [newBrandName, setNewBrandName]       = useState("");
   const [newBrandBusy, setNewBrandBusy]       = useState(false);
-  const [newCatalogBusy, setNewCatalogBusy]   = useState(false);
+  const [newCatalogBusy, setNewCatalogBusy]     = useState(false);
+  const [newAudienceBusy, setNewAudienceBusy]   = useState(false);
 
   useEffect(() => {
     async function init() {
       try {
-        const list = await listProjects();
-        setAvailableProjects(list);
+        const list = await listCampaigns();
+        setAvailableCampaigns(list);
         if (list.length > 0) {
-          const v = await loadProject(list[0].id);
+          const v = await loadCampaign(list[0].id);
           loadVersionStore(v);
         }
       } catch (err) {
@@ -135,24 +143,22 @@ function MainApp() {
   }, []);
 
   async function handleCreateCampaign(name: string) {
-    const newVersion = await createProject(name);
-    const list = await listProjects();
-    setAvailableProjects(list);
+    const newVersion = await createCampaign(name);
+    const list = await listCampaigns();
+    setAvailableCampaigns(list);
     loadVersionStore(newVersion);
     setShowNewCampaign(false);
     setCampaignOpen(true);
   }
 
   async function handleCreateBrand() {
-    const trimmed = newBrandName.trim();
-    if (!trimmed || newBrandBusy) return;
+    if (newBrandBusy) return;
     setNewBrandBusy(true);
     try {
-      const brand = await createBrand(trimmed);
+      const brand = await createBrand();
       setActiveBrand(brand);
       setBrandOpen(true);
       setShowNewBrand(false);
-      setNewBrandName("");
     } catch (err) {
       console.error(err);
     } finally {
@@ -184,6 +190,30 @@ function MainApp() {
     }
   }
 
+  async function handleCreateAudience() {
+    if (newAudienceBusy) return;
+    setNewAudienceBusy(true);
+    try {
+      const audience = await createAudience();
+      setActiveAudience(audience);
+      setAudienceOpen(true);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setNewAudienceBusy(false);
+    }
+  }
+
+  async function handleOpenAudience(id: string) {
+    try {
+      const audience = await loadAudience(id);
+      setActiveAudience(audience);
+      setAudienceOpen(true);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   async function handleOpenCatalog(id: string) {
     try {
       const catalog = await loadCatalog(id);
@@ -210,17 +240,9 @@ function MainApp() {
         <div className="syn-modal-backdrop" onClick={() => setShowNewBrand(false)}>
           <div className="syn-modal" onClick={(e) => e.stopPropagation()}>
             <div className="syn-modal-title">New brand</div>
-            <input
-              className="syn-modal-input"
-              placeholder="Brand name"
-              value={newBrandName}
-              autoFocus
-              onChange={(e) => setNewBrandName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreateBrand();
-                if (e.key === "Escape") setShowNewBrand(false);
-              }}
-            />
+            <p style={{ fontSize: 13, color: "#64748b", margin: "0 0 16px" }}>
+              You'll set the brand name and upload guidelines inside the brand editor.
+            </p>
             <div className="syn-modal-actions">
               <button
                 className="syn-modal-btn syn-modal-btn--cancel"
@@ -230,10 +252,10 @@ function MainApp() {
               </button>
               <button
                 className="syn-modal-btn syn-modal-btn--create"
-                disabled={!newBrandName.trim() || newBrandBusy}
+                disabled={newBrandBusy}
                 onClick={handleCreateBrand}
               >
-                {newBrandBusy ? "Creating…" : "Create"}
+                {newBrandBusy ? "Creating…" : "Create brand"}
               </button>
             </div>
           </div>
@@ -262,6 +284,12 @@ function MainApp() {
           <BrandSubFlow
             brand={activeBrand}
             onBack={() => setBrandOpen(false)}
+            onSave={() => listBrands().then(setBrandList).catch(console.error)}
+          />
+        ) : audienceOpen && synapseEntity === "audiences" && activeAudience ? (
+          <AudienceSubFlow
+            audience={activeAudience}
+            onBack={() => setAudienceOpen(false)}
           />
         ) : catalogOpen && synapseEntity === "catalogs" && activeCatalog ? (
           // ── Catalog sub-flow ──
@@ -273,13 +301,15 @@ function MainApp() {
           // ── Entity list view ──
           <EntityListView
             entity={synapseEntity}
-            onOpenCampaign={() => setCampaignOpen(true)}
+            onOpenCampaign={(_id) => setCampaignOpen(true)}
             onOpenBrand={handleOpenBrand}
             onOpenCatalog={handleOpenCatalog}
+            onOpenAudience={handleOpenAudience}
             onNew={() => {
               if (synapseEntity === "campaigns") setShowNewCampaign(true);
               if (synapseEntity === "brands") setShowNewBrand(true);
               if (synapseEntity === "catalogs") handleCreateCatalog();
+              if (synapseEntity === "audiences") handleCreateAudience();
             }}
           />
         )}

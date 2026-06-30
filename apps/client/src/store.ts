@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import type { Version, DataPlanModel, MediaPlanModel, Exchange, LibraryFile, Brand, ProductCatalog } from "@copper/contracts";
-import { saveProject as apiSaveProject } from "./api.js";
-import type { WizardShape, BrandSummary, CatalogSummary } from "./api.js";
+import type { Version, DataPlanModel, MediaPlanModel, Exchange, LibraryFile, Brand, ProductCatalog, Audience } from "@copper/contracts";
+import { saveCampaign as apiSaveCampaign } from "./api.js";
+import type { WizardShape, BrandSummary, CatalogSummary, AudienceSummary } from "./api.js";
 import type { LibraryData } from "./api.js";
 
 export type SaveStatus = "saved" | "saving" | "unsaved";
@@ -25,7 +25,7 @@ function savePanelLayout(s: { panelFocus: PanelFocus; contextW: number; planDocW
 interface State {
   // Project / version
   version: Version | null;
-  availableProjects: Array<{ id: string; name: string; version: number; updatedAt: string }>;
+  availableCampaigns: import("./api.js").CampaignSummary[];
   saveStatus: SaveStatus;
 
   // Active plan tab
@@ -63,6 +63,11 @@ interface State {
   activeCatalog: ProductCatalog | null;
   catalogOpen: boolean;
 
+  // Audience
+  audienceList: AudienceSummary[];
+  activeAudience: Audience | null;
+  audienceOpen: boolean;
+
   // ── Derived accessors (computed from version) ──────────────────────────────
   dataModel: () => DataPlanModel | null;
   mediaModel: () => MediaPlanModel | null;
@@ -71,7 +76,7 @@ interface State {
   contextFiles: () => Version["context"]["contextFiles"];
 
   // ── Actions ────────────────────────────────────────────────────────────────
-  setAvailableProjects: (list: Array<{ id: string; name: string; version: number; updatedAt: string }>) => void;
+  setAvailableCampaigns: (list: Array<{ id: string; name: string; version: number; updatedAt: string }>) => void;
   loadVersion: (v: Version) => void;
   setActivePlan: (plan: ActivePlan) => void;
   selectNode: (id: string | null) => void;
@@ -107,6 +112,10 @@ interface State {
   setActiveCatalog: (catalog: ProductCatalog | null) => void;
   setCatalogOpen: (open: boolean) => void;
 
+  setAudienceList: (list: AudienceSummary[]) => void;
+  setActiveAudience: (audience: Audience | null) => void;
+  setAudienceOpen: (open: boolean) => void;
+
   updateDataDocument: (doc: string) => void;
   updateMediaDocument: (doc: string) => void;
   appendExchanges: (exchanges: Exchange[]) => void;
@@ -122,7 +131,7 @@ interface State {
 
 export const useStore = create<State>((set, get) => ({
   version: null,
-  availableProjects: [],
+  availableCampaigns: [],
   saveStatus: "saved",
 
   activePlan: "data",
@@ -156,6 +165,11 @@ export const useStore = create<State>((set, get) => ({
   activeCatalog: null,
   catalogOpen: false,
 
+  // Audience state
+  audienceList: [],
+  activeAudience: null,
+  audienceOpen: false,
+
   // Derived — read from version each time (no redundant mirrors)
   dataModel: () => get().version?.plans.data.model ?? null,
   mediaModel: () => get().version?.plans.media.model ?? null,
@@ -164,7 +178,7 @@ export const useStore = create<State>((set, get) => ({
   contextFiles: () => get().version?.context.contextFiles ?? [],
 
   // Actions
-  setAvailableProjects: (list) => set({ availableProjects: list }),
+  setAvailableCampaigns: (list) => set({ availableCampaigns: list }),
 
   loadVersion: (v) =>
     set({
@@ -231,12 +245,15 @@ export const useStore = create<State>((set, get) => ({
   setCatalogList: (catalogList) => set({ catalogList }),
   setActiveCatalog: (activeCatalog) => set({ activeCatalog }),
   setCatalogOpen: (catalogOpen) => set({ catalogOpen }),
+  setAudienceList: (audienceList) => set({ audienceList }),
+  setActiveAudience: (activeAudience) => set({ activeAudience }),
+  setAudienceOpen: (audienceOpen) => set({ audienceOpen }),
   setSynapseStage: (synapseStage) => set({
     synapseStage,
     synapseSubStep: synapseStage === "blueprint"       ? "brand_brief"
                   : synapseStage === "regen"           ? "assets"
                   : synapseStage === "preview_approve" ? "compliance"
-                  : "media_plan",
+                  : "trafficking",
   }),
   setSynapseSubStep: (synapseSubStep) => set({ synapseSubStep }),
   setAgentOpen: (agentOpen) => set({ agentOpen }),
@@ -269,10 +286,30 @@ export const useStore = create<State>((set, get) => ({
   patchVersion: (v) => set({ version: v, saveStatus: "unsaved" }),
 
   mergeServerVersion: (v) =>
-    set((s) => ({
-      version: s.version ? { ...v, context: s.version.context } : v,
-      saveStatus: "unsaved" as SaveStatus,
-    })),
+    set((s) => {
+      if (!s.version) return { version: v, saveStatus: "unsaved" as SaveStatus };
+      // Keep client-side context fields (exchanges, library selections) but merge
+      // server-written fields like context.brief so patchContext ops surface in the form.
+      const clientCtx = s.version.context as Record<string, unknown>;
+      const serverCtx = (v.context ?? {}) as Record<string, unknown>;
+      const mergedBrief = {
+        ...(clientCtx.brief as Record<string, unknown> ?? {}),
+        ...(serverCtx.brief as Record<string, unknown> ?? {}),
+      };
+      return {
+        version: {
+          ...v,
+          context: {
+            ...clientCtx,
+            ...serverCtx,
+            // Always keep client exchanges (they include the just-appended user/assistant pair)
+            exchanges: clientCtx.exchanges,
+            brief: mergedBrief,
+          } as typeof s.version.context,
+        },
+        saveStatus: "unsaved" as SaveStatus,
+      };
+    }),
 
   appendExchanges: (exchanges) =>
     set((s) => {
@@ -295,7 +332,7 @@ export const useStore = create<State>((set, get) => ({
     if (!version?.id) return;
     set({ saveStatus: "saving" });
     try {
-      await apiSaveProject(version.id, version);
+      await apiSaveCampaign(version.id, version);
       set({ saveStatus: "saved" });
     } catch {
       set({ saveStatus: "unsaved" });

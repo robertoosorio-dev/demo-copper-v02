@@ -15,6 +15,7 @@ import { saveBrand as apiSaveBrand } from "../../api.js";
 import type { ExtractedField } from "../../api.js";
 import { useStore } from "../../store.js";
 import BrandAgentPanel from "./BrandAgentPanel.js";
+import ComplianceView, { countUnconfirmedRules, confirmAllRules } from "./ComplianceView.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -344,14 +345,17 @@ function getSectionStats(brand: Brand, section: NavSection): SectionStats | null
 export default function BrandSubFlow({
   brand: initialBrand,
   onBack,
+  onSave,
 }: {
   brand: Brand;
   onBack: () => void;
+  onSave?: (brand: Brand) => void;
 }) {
   const [brand, setBrand] = useState<Brand>(initialBrand);
   const [activeSection, setActiveSection] = useState<NavSection>("basic");
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
+  const [showRuleConfirmDialog, setShowRuleConfirmDialog] = useState(false);
   const setActiveBrand = useStore((s) => s.setActiveBrand);
 
   const patchField = useCallback(
@@ -421,12 +425,24 @@ export default function BrandSubFlow({
     });
   }, []);
 
-  async function handleSave() {
+  async function handleSave(forceConfirmRules = false) {
+    const unconfirmed = countUnconfirmedRules(brand.ruleSets ?? []);
+    if (unconfirmed > 0 && !forceConfirmRules) {
+      setShowRuleConfirmDialog(true);
+      return;
+    }
     setSaving(true);
     try {
-      const saved = await apiSaveBrand(brand.id, brand);
+      const nameFromForm = brand.basicDetails.name.value?.trim();
+      const brandToSave = nameFromForm ? { ...brand, name: nameFromForm } : brand;
+      // Auto-confirm all remaining AI rules if user chose "Save anyway"
+      if (forceConfirmRules && unconfirmed > 0) {
+        brandToSave.ruleSets = confirmAllRules(brandToSave.ruleSets ?? []);
+      }
+      const saved = await apiSaveBrand(brand.id, brandToSave);
       setBrand(saved);
       setActiveBrand(saved);
+      onSave?.(saved);
       setSaveMsg("Saved");
       setTimeout(() => setSaveMsg(""), 2000);
     } catch (e) {
@@ -669,38 +685,11 @@ export default function BrandSubFlow({
 
       case "compliance":
         return (
-          <SectionCard
-            title="Compliance Rules"
-            severity={brand.aiSeverity.complianceRules}
-            onSeverityChange={(s) => patchSeverity("complianceRules", s)}
-          >
-            <FieldRow
-              label="Required Disclaimers"
-              description="Legal text that must accompany creative"
-              field={brand.complianceRules.requiredDisclaimers}
-              onChange={(p) => patchField(["complianceRules", "requiredDisclaimers"], p)}
-              multiline
-            />
-            <FieldRow
-              label="Restricted Terms"
-              description="Terms that trigger legal review"
-              field={brand.complianceRules.restrictedTerms}
-              onChange={(p) => patchField(["complianceRules", "restrictedTerms"], p)}
-            />
-            <FieldRow
-              label="Legal Notes"
-              description="General legal guidance for this brand"
-              field={brand.complianceRules.legalNotes}
-              onChange={(p) => patchField(["complianceRules", "legalNotes"], p)}
-              multiline
-            />
-            <FieldRow
-              label="Regulated Categories"
-              description="Regulated product/service categories"
-              field={brand.complianceRules.regulatedCategories}
-              onChange={(p) => patchField(["complianceRules", "regulatedCategories"], p)}
-            />
-          </SectionCard>
+          <ComplianceView
+            brandId={brand.id}
+            ruleSets={brand.ruleSets ?? []}
+            onChange={(rs) => setBrand((prev) => ({ ...prev, ruleSets: rs }))}
+          />
         );
 
       case "connectors":
@@ -821,8 +810,30 @@ export default function BrandSubFlow({
 
   // ── Layout ────────────────────────────────────────────────────────────────
 
+  const unconfirmedCount = countUnconfirmedRules(brand.ruleSets ?? []);
+
   return (
     <div style={{ display: "flex", height: "100%", flexDirection: "column", background: "#f8fafc" }}>
+      {/* Unconfirmed rules save dialog */}
+      {showRuleConfirmDialog && (
+        <div className="cr-overlay" style={{ zIndex: 2000 }}>
+          <div className="cr-intent-dialog">
+            <div className="cr-intent-title">Unreviewed compliance rules</div>
+            <p style={{ fontSize: 13, color: "#475569", margin: 0, lineHeight: 1.6 }}>
+              <strong>{unconfirmedCount} rule{unconfirmedCount !== 1 ? "s" : ""}</strong> extracted by AI {unconfirmedCount !== 1 ? "have" : "has"} not been approved yet.
+              Saving now will mark all of them as confirmed. You can still edit rules after saving.
+            </p>
+            <div className="cr-intent-footer">
+              <button className="cr-btn cr-btn--ghost" onClick={() => setShowRuleConfirmDialog(false)}>
+                Review first
+              </button>
+              <button className="cr-btn cr-btn--primary" onClick={() => { setShowRuleConfirmDialog(false); void handleSave(true); }}>
+                Save anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Top bar */}
       <div
         style={{
@@ -859,7 +870,7 @@ export default function BrandSubFlow({
             background: "#e2e8f0",
           }}
         />
-        <span style={{ fontSize: 15, fontWeight: 700, color: "#1e293b" }}>{brand.name}</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: "#1e293b" }}>{brand.basicDetails.name.value || brand.name}</span>
         <span
           style={{
             fontSize: 11,
@@ -880,7 +891,7 @@ export default function BrandSubFlow({
           </span>
         )}
         <button
-          onClick={handleSave}
+          onClick={() => void handleSave()}
           disabled={saving}
           style={{
             fontSize: 13,

@@ -16,10 +16,22 @@ interface VersionBlock {
 }
 
 export default function QAViewer() {
-  const version = useStore((s) => s.version);
-  const [blocks, setBlocks] = useState<VersionBlock[]>([]);
+  const version    = useStore((s) => s.version);
+  const isLoading  = useStore((s) => s.isLoading);
+  const [blocks, setBlocks]   = useState<VersionBlock[]>([]);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<ReasoningLogEntry | null>(null);
+
+  // Auto-refresh after each agent response finishes
+  const prevLoadingRef = React.useRef(false);
+  useEffect(() => {
+    if (prevLoadingRef.current && !isLoading && version?.id) {
+      // Small delay so GCS write completes before we fetch
+      const t = setTimeout(() => load(version.id!), 800);
+      return () => clearTimeout(t);
+    }
+    prevLoadingRef.current = isLoading;
+  }, [isLoading]);
 
   function load(id: string) {
     setLoading(true);
@@ -154,34 +166,42 @@ function EntryDetail({ entry }: { entry: ReasoningLogEntry }) {
         </section>
       )}
 
-      {entry.producedChanges.length > 0 && (
-        <section className="qa-section">
-          <h4>Produced Changes ({entry.producedChanges.length})</h4>
-          <div className="qa-changes">
-            {entry.producedChanges.map((changeId, i) => (
-              <div key={i} className="qa-change-row">
-                <span className="qa-change-state qa-cs-pending">change</span>
-                <span className="qa-change-summary" style={{ fontFamily: "var(--mono)", fontSize: 10 }}>{changeId}</span>
-              </div>
-            ))}
+      <section className="qa-section">
+        <h4>Ops Produced ({entry.producedChanges.length})</h4>
+        {entry.producedChanges.length === 0 ? (
+          <p style={{ color: "#94a3b8", fontSize: 12, margin: 0 }}>No ops — agent replied without mutations.</p>
+        ) : (
+          <div className="qa-ops-list">
+            {entry.producedChanges.map((raw, i) => {
+              let parsed: unknown;
+              try { parsed = JSON.parse(raw); } catch { parsed = raw; }
+              return (
+                <pre key={i} className="qa-op-pre">
+                  {JSON.stringify(parsed, null, 2)}
+                </pre>
+              );
+            })}
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
       {entry.contextSeen.chat && (
         <section className="qa-section">
-          <h4>Context — Chat</h4>
+          <h4>Message sent to agent <span style={{ fontWeight: 400, color: "#94a3b8" }}>({entry.contextSeen.chat.userMessage.length} chars)</span></h4>
           <div className="qa-ctx-chat">
-            <div className="qa-ctx-user"><strong>User:</strong> {entry.contextSeen.chat.userMessage}</div>
+            <pre className="qa-msg-pre">{entry.contextSeen.chat.userMessage}</pre>
             {entry.contextSeen.chat.history.length > 0 && (
-              <ul className="qa-ctx">
-                {entry.contextSeen.chat.history.map((h, i) => (
-                  <li key={i}>
-                    <strong>{h.role}:</strong>{" "}
-                    {h.content.length > 200 ? h.content.slice(0, 200) + "…" : h.content}
-                  </li>
-                ))}
-              </ul>
+              <>
+                <h5 style={{ margin: "10px 0 4px", fontSize: 11, color: "#64748b" }}>Conversation history included:</h5>
+                <ul className="qa-ctx">
+                  {entry.contextSeen.chat.history.map((h, i) => (
+                    <li key={i}>
+                      <strong>{h.role}:</strong>{" "}
+                      {h.content.length > 200 ? h.content.slice(0, 200) + "…" : h.content}
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </div>
         </section>

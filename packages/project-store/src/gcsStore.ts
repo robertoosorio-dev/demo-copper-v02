@@ -19,18 +19,31 @@ function verFolder(projectId: string, versionNum: number): string {
 export class ProjectStoreGCS {
   constructor(private readonly storage: StorageProvider) {}
 
-  async listProjects(): Promise<Array<{ id: string; name: string; version: number; updatedAt: string }>> {
+  async listProjects(): Promise<Array<{
+    id: string; name: string; version: number; updatedAt: string; createdAt: string;
+    status: string; description: string; startDate: string; endDate: string;
+    completedSteps: number; totalSteps: number; brandName: string | null;
+  }>> {
     const folders = await this.storage.listFolders(ROOT);
     const results = [];
     for (const projectId of folders) {
       try {
         const latest = await this.loadLatestVersion(projectId);
         if (latest) {
+          const meta = (latest.context as any)?.campaign ?? {};
           results.push({
             id: latest.id,
             name: latest.name,
             version: latest.version,
             updatedAt: latest.createdAt,
+            createdAt: latest.createdAt,
+            status: meta.status ?? "draft",
+            description: meta.description ?? "",
+            startDate: meta.startDate ?? "",
+            endDate: meta.endDate ?? "",
+            completedSteps: meta.completedSteps ?? 0,
+            totalSteps: meta.totalSteps ?? 5,
+            brandName: meta.brandName ?? null,
           });
         }
       } catch {

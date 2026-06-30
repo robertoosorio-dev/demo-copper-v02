@@ -67,19 +67,21 @@ export function makeChatRouter(store: ProjectStore, getKB: () => string = () => 
       exchanges = [],
       version: clientVersion,
       libraryContext = [],
+      subStep = "",
     } = req.body as {
       message: string;
       llmModel?: string;
       exchanges?: Exchange[];
       version?: Version;
       libraryContext?: LibraryFile[];
+      subStep?: string;
     };
 
     if (!message?.trim()) return res.status(400).json({ error: "message required" });
 
-    // Stand-in engine seam: return a wizard shape when intent is detected.
-    // Replace this block with real LLM-driven wizard generation in M3.
-    if (detectWizardIntent(message)) {
+    // Stand-in engine seam: only fire the catalog wizard when explicitly on the
+    // what_promoting substep, not for media plan messages that happen to mention "catalog".
+    if (subStep === "what_promoting" && detectWizardIntent(message)) {
       const assistantExchange: Exchange = {
         id: `ex_a_${Date.now()}`,
         role: "assistant",
@@ -111,7 +113,7 @@ export function makeChatRouter(store: ProjectStore, getKB: () => string = () => 
       ? libMeta.map((l) => `- ${l}`).join("\n")
       : "";
 
-    const systemPrompt = buildSystemPrompt(version, getKB(), librarySection);
+    const systemPrompt = buildSystemPrompt(version, getKB(), librarySection, subStep);
 
     // Build user message with recent conversation context
     const historyLines = exchanges.slice(-6).map((e) =>
@@ -146,11 +148,16 @@ export function makeChatRouter(store: ProjectStore, getKB: () => string = () => 
       return res.status(500).json({ error: `LLM error: ${(err as Error).message}` });
     }
 
+    // Extract askClarification ops — they don't mutate version, just signal the UI
+    const clarificationOps = ops.filter((o) => o.op === "askClarification") as import("@copper/contracts").AskClarificationIntent[];
+    const clarificationQuestions = clarificationOps.flatMap((o) => o.questions);
+    const mutatingOps = ops.filter((o) => o.op !== "askClarification");
+
     // Apply ops and produce a provisional new version (NOT saved — user must explicitly save).
     let newVersion = version;
     let versioned = false;
-    if (ops.length > 0) {
-      newVersion = applyOps(version, ops);
+    if (mutatingOps.length > 0) {
+      newVersion = applyOps(version, mutatingOps);
       newVersion = {
         ...newVersion,
         version: version.version + 1,
@@ -160,6 +167,7 @@ export function makeChatRouter(store: ProjectStore, getKB: () => string = () => 
       };
       versioned = true;
     }
+    ops = mutatingOps; // use filtered list for logging/journaling
 
     // Journal reasoning entry
     const passId = `pass_${Date.now().toString(36)}`;
@@ -170,7 +178,7 @@ export function makeChatRouter(store: ProjectStore, getKB: () => string = () => 
       pass: passId,
       seq: 0,
       reasoning,
-      producedChanges: [],
+      producedChanges: ops.map((o) => JSON.stringify(o)),
       contextSeen: {
         chat: {
           userMessage: message,
@@ -205,10 +213,17 @@ export function makeChatRouter(store: ProjectStore, getKB: () => string = () => 
       console.log(`[chat] library: ${libraryContent.length} doc blocks + ${metadataOnly.length} metadata-only`);
     }
     console.log(
-      `[chat] ✅ ${projectId} v${version.version}→v${newVersion.version} | ops:${ops.length} versioned:${versioned}`,
+      `[chat] ✅ ${projectId} v${version.version}→v${newVersion.version} | ops:${ops.length} versioned:${versioned} | msg:${message.length}chars "${message.slice(0, 120).replace(/\n/g, " ")}${message.length > 120 ? "…" : ""}"`,
     );
+    if (ops.length > 0) {
+      ops.forEach((op, i) => console.log(`[chat]   op[${i}]: ${JSON.stringify(op).slice(0, 300)}`));
+    }
 
-    res.json({ exchange, version: versioned ? newVersion : null });
+    res.json({
+      exchange,
+      version: versioned ? newVersion : null,
+      ...(clarificationQuestions.length > 0 ? { clarificationQuestions } : {}),
+    });
   });
 
   return router;

@@ -203,20 +203,25 @@ function blankCatalog(id: string): ProductCatalog {
 export function makeCatalogsRouter(): Router {
   const router = Router();
 
-  // List
-  router.get("/", async (_req, res) => {
-    try { res.json(await readIndex()); }
-    catch (err) { res.status(500).json({ error: (err as Error).message }); }
+  // List — optional ?brandId= filter
+  router.get("/", async (req, res) => {
+    try {
+      const { brandId } = req.query as { brandId?: string };
+      let index = await readIndex();
+      if (brandId) index = index.filter((c) => c.brandId === brandId);
+      res.json(index);
+    } catch (err) { res.status(500).json({ error: (err as Error).message }); }
   });
 
-  // Create
-  router.post("/", async (_req, res) => {
+  // Create — accepts optional brandId in body
+  router.post("/", async (req, res) => {
     try {
+      const { brandId = null } = (req.body ?? {}) as { brandId?: string | null };
       const id      = `cat-${randomUUID().split("-")[0]}`;
-      const catalog = blankCatalog(id);
+      const catalog = { ...blankCatalog(id), brandId };
       await storage().write(catalogPath(id), JSON.stringify(catalog, null, 2));
       const index   = await readIndex();
-      index.unshift({ id, name: catalog.name, status: catalog.status, rowCount: 0, createdAt: catalog.createdAt, updatedAt: catalog.updatedAt });
+      index.unshift({ id, name: catalog.name, brandId, status: catalog.status, rowCount: 0, createdAt: catalog.createdAt, updatedAt: catalog.updatedAt });
       await writeIndex(index);
       res.status(201).json(catalog);
     } catch (err) { res.status(500).json({ error: (err as Error).message }); }
@@ -235,7 +240,7 @@ export function makeCatalogsRouter(): Router {
       catalog.updatedAt = new Date().toISOString();
       await storage().write(catalogPath(req.params.id), JSON.stringify(catalog, null, 2));
       const index   = await readIndex();
-      const summary: CatalogSummary = { id: catalog.id, name: catalog.name, status: catalog.status, rowCount: catalog.rowCount, createdAt: catalog.createdAt, updatedAt: catalog.updatedAt };
+      const summary: CatalogSummary = { id: catalog.id, name: catalog.name, brandId: catalog.brandId, status: catalog.status, rowCount: catalog.rowCount, createdAt: catalog.createdAt, updatedAt: catalog.updatedAt };
       const idx = index.findIndex((c) => c.id === req.params.id);
       if (idx >= 0) index[idx] = summary; else index.unshift(summary);
       await writeIndex(index);
@@ -297,7 +302,7 @@ export function makeCatalogsRouter(): Router {
 
       // Update index
       const index = await readIndex();
-      const summary: CatalogSummary = { id: updated.id, name: updated.name, status: updated.status, rowCount: updated.rowCount, createdAt: updated.createdAt, updatedAt: updated.updatedAt };
+      const summary: CatalogSummary = { id: updated.id, name: updated.name, brandId: updated.brandId, status: updated.status, rowCount: updated.rowCount, createdAt: updated.createdAt, updatedAt: updated.updatedAt };
       const idx = index.findIndex((c) => c.id === req.params.id);
       if (idx >= 0) index[idx] = summary; else index.unshift(summary);
       await writeIndex(index);
@@ -307,6 +312,16 @@ export function makeCatalogsRouter(): Router {
       console.error("[catalog/detect]", err);
       res.status(500).json({ error: (err as Error).message });
     }
+  });
+
+  // Delete
+  router.delete("/:id", async (req, res) => {
+    try {
+      await storage().delete(catalogPath(req.params.id));
+      const index = (await readIndex()).filter((c) => c.id !== req.params.id);
+      await writeIndex(index);
+      res.json({ ok: true });
+    } catch (err) { res.status(500).json({ error: (err as Error).message }); }
   });
 
   return router;

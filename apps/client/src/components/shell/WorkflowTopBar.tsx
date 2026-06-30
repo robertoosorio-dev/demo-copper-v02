@@ -4,10 +4,10 @@ import type { CampaignStage } from "../../store.js";
 import { IconCheck, IconChevronLeft } from "@tabler/icons-react";
 
 const STAGES: { id: CampaignStage; label: string }[] = [
-  { id: "blueprint",       label: "Blueprint"         },
-  { id: "regen",           label: "Regen"             },
-  { id: "preview_approve", label: "Preview & Approve" },
-  { id: "launch",          label: "Launch"            },
+  { id: "blueprint",       label: "Plan"     },
+  { id: "regen",           label: "Create"   },
+  { id: "preview_approve", label: "Approve"  },
+  { id: "launch",          label: "Activate" },
 ];
 
 const STAGE_ORDER: CampaignStage[] = ["blueprint", "regen", "preview_approve", "launch"];

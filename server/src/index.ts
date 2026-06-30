@@ -24,6 +24,8 @@ import { makeLibraryRouter } from "./routes/library.js";
 import { makeBrandsRouter } from "./routes/brands.js";
 import { makeBrandExtractRouter } from "./routes/brandExtract.js";
 import { makeCatalogsRouter } from "./routes/catalogs.js";
+import { makeAudiencesRouter } from "./routes/audiences.js";
+import { makeCampaignBriefExtractRouter } from "./routes/campaignBriefExtract.js";
 
 const PORT = process.env.PORT ?? 3001;
 const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "http://localhost:5173";
@@ -54,6 +56,8 @@ app.use("/api/projects", makeLibraryRouter());
 app.use("/api/brands", makeBrandsRouter());
 app.use("/api/brands", makeBrandExtractRouter());
 app.use("/api/catalogs", makeCatalogsRouter());
+app.use("/api/audiences", makeAudiencesRouter());
+app.use("/api/projects", makeCampaignBriefExtractRouter());
 
 // Serve built client in production (same container, no CORS needed)
 const DIST = path.resolve(__dirname, "../../apps/client/dist");

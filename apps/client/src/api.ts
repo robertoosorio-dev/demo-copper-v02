@@ -19,6 +19,11 @@ async function put<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function del(path: string): Promise<void> {
+  const res = await fetch(`${BASE}${path}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`DELETE ${path} → ${res.status}`);
+}
+
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     method: "POST",
@@ -32,26 +37,38 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export interface ProjectSummary {
+export interface CampaignSummary {
   id: string;
   name: string;
   version: number;
   updatedAt: string;
+  createdAt: string;
+  status: string;
+  description: string;
+  startDate: string;
+  endDate: string;
+  completedSteps: number;
+  totalSteps: number;
+  brandName: string | null;
 }
 
-export function listProjects(): Promise<ProjectSummary[]> {
-  return get<ProjectSummary[]>("/projects");
+export function listCampaigns(): Promise<CampaignSummary[]> {
+  return get<CampaignSummary[]>("/projects");
 }
 
-export function createProject(name: string): Promise<Version> {
+export function createCampaign(name: string): Promise<Version> {
   return post<Version>("/projects", { name });
 }
 
-export function loadProject(id: string): Promise<Version> {
+export function loadCampaign(id: string): Promise<Version> {
   return get<Version>(`/projects/${id}`);
 }
 
-export function saveProject(id: string, version: Version): Promise<Version> {
+export function deleteCampaign(id: string): Promise<void> {
+  return del(`/projects/${id}`);
+}
+
+export function saveCampaign(id: string, version: Version): Promise<Version> {
   return put<Version>(`/projects/${id}`, version);
 }
 
@@ -96,6 +113,7 @@ export interface ChatResponse {
   exchange: Exchange;
   version: Version | null;
   wizard?: WizardShape;
+  clarificationQuestions?: import("@copper/contracts").ClarificationQuestion[];
 }
 
 export function chat(
@@ -105,8 +123,9 @@ export function chat(
   exchanges: Exchange[],
   version: Version,
   libraryContext?: import("@copper/contracts").LibraryFile[],
+  subStep?: string,
 ): Promise<ChatResponse> {
-  return post<ChatResponse>(`/projects/${id}/chat`, { message, llmModel, exchanges, version, libraryContext });
+  return post<ChatResponse>(`/projects/${id}/chat`, { message, llmModel, exchanges, version, libraryContext, subStep });
 }
 
 export function listVersions(id: string): Promise<VersionSummary[]> {
@@ -245,16 +264,16 @@ export async function adminQAFetchKBFiles(): Promise<Array<{ path: string; conte
 import type { LibraryData } from "@copper/contracts";
 export type { LibraryData };
 
-export function getLibrary(projectId: string): Promise<LibraryData> {
-  return get<LibraryData>(`/projects/${projectId}/library`);
+export function getLibrary(campaignId: string): Promise<LibraryData> {
+  return get<LibraryData>(`/projects/${campaignId}/library`);
 }
 
-export function putLibrary(projectId: string, data: LibraryData): Promise<{ ok: boolean }> {
-  return put<{ ok: boolean }>(`/projects/${projectId}/library`, data);
+export function putLibrary(campaignId: string, data: LibraryData): Promise<{ ok: boolean }> {
+  return put<{ ok: boolean }>(`/projects/${campaignId}/library`, data);
 }
 
 export async function uploadLibraryContent(
-  projectId: string,
+  campaignId: string,
   fileId: string,
   file: File,
 ): Promise<{ contentPath: string }> {
@@ -264,7 +283,7 @@ export async function uploadLibraryContent(
       const dataUrl = reader.result as string;
       const base64 = dataUrl.split(",")[1];
       post<{ ok: boolean; contentPath: string }>(
-        `/projects/${projectId}/library/upload`,
+        `/projects/${campaignId}/library/upload`,
         { fileId, contentBase64: base64, mimeType: file.type || "application/octet-stream" },
       ).then(resolve).catch(reject);
     };
@@ -273,8 +292,8 @@ export async function uploadLibraryContent(
   });
 }
 
-export function libraryContentUrl(projectId: string, fileId: string): string {
-  return `/api/projects/${projectId}/library/${encodeURIComponent(fileId)}/content`;
+export function libraryContentUrl(campaignId: string, fileId: string): string {
+  return `/api/projects/${campaignId}/library/${encodeURIComponent(fileId)}/content`;
 }
 
 // ── Card definitions ──────────────────────────────────────────────────────────
@@ -347,7 +366,7 @@ export function listBrands(): Promise<BrandSummary[]> {
   return get<BrandSummary[]>("/brands");
 }
 
-export function createBrand(name: string): Promise<Brand> {
+export function createBrand(name = "New Brand"): Promise<Brand> {
   return post<Brand>("/brands", { name });
 }
 
@@ -357,6 +376,37 @@ export function loadBrand(id: string): Promise<Brand> {
 
 export function saveBrand(id: string, brand: Brand): Promise<Brand> {
   return put<Brand>(`/brands/${id}`, brand);
+}
+
+export function deleteBrand(id: string): Promise<void> {
+  return del(`/brands/${id}`);
+}
+
+export async function parseComplianceRules(
+  brandId: string,
+  opts: {
+    text?: string;
+    file?: File;
+    llmModel?: string;
+    intent?: "new" | "update" | "append";
+    targetRuleSetName?: string;
+  },
+): Promise<import("@copper/contracts").RuleSet> {
+  const { text, file, llmModel = "claude-sonnet-4-6", intent = "new", targetRuleSetName } = opts;
+  let fileBase64: string | undefined;
+  let mimeType: string | undefined;
+  let fileName: string | undefined;
+
+  if (file) {
+    const buf = await file.arrayBuffer();
+    fileBase64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    mimeType = file.type || "application/octet-stream";
+    fileName = file.name;
+  }
+
+  const body = { text, fileBase64, mimeType, fileName, llmModel, intent, targetRuleSetName };
+  const data = await post<{ ruleSet: import("@copper/contracts").RuleSet }>(`/brands/${brandId}/parse-rules`, body);
+  return data.ruleSet;
 }
 
 export interface ExtractedField {
@@ -387,16 +437,93 @@ export async function extractBrand(
   return post<ExtractResponse>(`/brands/${id}/extract`, body);
 }
 
+// ── Campaign Brief Extraction ─────────────────────────────────────────────────
+
+export interface CampaignBriefExtractResult {
+  brief: {
+    campaignName?: string;
+    startDate?: string;
+    endDate?: string;
+    description?: string;
+    objective?: string;
+    primaryKpi?: string;
+    targetAudience?: string;
+    channels?: string[];
+    regions?: string[];
+    offerFocus?: string;
+    complianceNotes?: string;
+  };
+}
+
+export async function extractCampaignBrief(
+  projectId: string,
+  opts: { message?: string; file?: File; llmModel?: string },
+): Promise<CampaignBriefExtractResult> {
+  const body: Record<string, unknown> = {
+    llmModel: opts.llmModel ?? "claude-sonnet-4-6",
+    message: opts.message ?? "",
+  };
+  if (opts.file) {
+    body.fileName = opts.file.name;
+    body.mimeType = opts.file.type || "application/octet-stream";
+    body.fileBase64 = arrayBufferToBase64(await opts.file.arrayBuffer());
+  }
+  return post<CampaignBriefExtractResult>(`/projects/${projectId}/extract-brief`, body);
+}
+
+// ── Audience API ──────────────────────────────────────────────────────────────
+import type { Audience, AudienceSummary } from "@copper/contracts";
+export type { Audience, AudienceSummary };
+
+export function listAudiences(): Promise<AudienceSummary[]> {
+  return get<AudienceSummary[]>("/audiences");
+}
+
+export function createAudience(): Promise<Audience> {
+  return post<Audience>("/audiences", {});
+}
+
+export function loadAudience(id: string): Promise<Audience> {
+  return get<Audience>(`/audiences/${id}`);
+}
+
+export function saveAudience(id: string, audience: Audience): Promise<Audience> {
+  return put<Audience>(`/audiences/${id}`, audience);
+}
+
+export function deleteAudience(id: string): Promise<void> {
+  return del(`/audiences/${id}`);
+}
+
+export interface AudienceDetectResult {
+  audience: Audience;
+  headers: string[];
+  sampleRows: string[][];
+}
+
+export async function detectAudienceCSV(
+  id: string,
+  file: File,
+  llmModel?: string,
+): Promise<AudienceDetectResult> {
+  const buf = await file.arrayBuffer();
+  return post<AudienceDetectResult>(`/audiences/${id}/detect`, {
+    csvBase64: arrayBufferToBase64(buf),
+    fileName:  file.name,
+    llmModel:  llmModel ?? "claude-sonnet-4-6",
+  });
+}
+
 // ── Catalog API ───────────────────────────────────────────────────────────────
 import type { ProductCatalog, CatalogSummary } from "@copper/contracts";
 export type { ProductCatalog, CatalogSummary };
 
-export function listCatalogs(): Promise<CatalogSummary[]> {
-  return get<CatalogSummary[]>("/catalogs");
+export function listCatalogs(brandId?: string): Promise<CatalogSummary[]> {
+  return get<CatalogSummary[]>(brandId ? `/catalogs?brandId=${encodeURIComponent(brandId)}` : "/catalogs");
 }
 
-export function createCatalog(): Promise<ProductCatalog> {
-  return post<ProductCatalog>("/catalogs", {});
+export function createCatalog(brandId?: string | null): Promise<ProductCatalog> {
+  return post<ProductCatalog>("/catalogs", { brandId: brandId ?? null });
 }
 
 export function loadCatalog(id: string): Promise<ProductCatalog> {
@@ -405,6 +532,10 @@ export function loadCatalog(id: string): Promise<ProductCatalog> {
 
 export function saveCatalog(id: string, catalog: ProductCatalog): Promise<ProductCatalog> {
   return put<ProductCatalog>(`/catalogs/${id}`, catalog);
+}
+
+export function deleteCatalog(id: string): Promise<void> {
+  return del(`/catalogs/${id}`);
 }
 
 export interface DetectResult {

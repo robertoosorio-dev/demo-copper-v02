@@ -1,5 +1,12 @@
 import { Router } from "express";
 import type { ProjectStore } from "../store.js";
+import { GCSStorageProvider } from "../storage/gcs.js";
+
+let _storage: GCSStorageProvider | null = null;
+function storage(): GCSStorageProvider {
+  if (!_storage) _storage = new GCSStorageProvider();
+  return _storage;
+}
 
 export function makeProjectsRouter(store: ProjectStore): Router {
   const router = Router();
@@ -48,6 +55,17 @@ export function makeProjectsRouter(store: ProjectStore): Router {
     } catch (err) {
       console.error("[projects] save failed:", (err as Error).message);
       res.status(500).json({ error: "Failed to save project" });
+    }
+  });
+
+  // DELETE /api/projects/:id — delete all versions of a project
+  router.delete("/:id", async (req, res) => {
+    try {
+      await storage().deletePrefix(`project_data/${req.params.id}`);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("[projects] delete failed:", (err as Error).message);
+      res.status(500).json({ error: "Failed to delete project" });
     }
   });
 

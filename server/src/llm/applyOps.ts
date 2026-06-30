@@ -1,4 +1,4 @@
-import type { Version, Intent, DataPlanEntity, MediaPlanEntity } from "@copper/contracts";
+import type { Version, Intent, DataPlanEntity, MediaPlanEntity, CreativePlanModel } from "@copper/contracts";
 
 export function applyOps(version: Version, ops: Intent[]): Version {
   return ops.reduce(applyOp, version);
@@ -87,7 +87,66 @@ function applyOp(v: Version, op: Intent): Version {
       return v;
     }
 
+    case "patchCreative": {
+      const existingSlot = (v.plans as any).creative ?? { document: "", model: null };
+      const existing: CreativePlanModel = existingSlot.model ?? {
+        deliveryType: null,
+        personalizationStrategies: [],
+        productDisplayOrder: [],
+      };
+      const patch = op.patch;
+      const merged: CreativePlanModel = {
+        ...existing,
+        ...patch,
+        // Deep-merge strategies array: patch replaces by id, new ones are appended
+        personalizationStrategies: patch.personalizationStrategies !== undefined
+          ? mergeStrategies(existing.personalizationStrategies, patch.personalizationStrategies)
+          : existing.personalizationStrategies,
+      };
+      return { ...v, plans: { ...v.plans, creative: { ...existingSlot, model: merged } } };
+    }
+
+    case "askClarification":
+      // UI-only signal — questions are surfaced to the client via the exchange,
+      // not stored in version state. No-op here.
+      return v;
+
+    case "patchContext": {
+      const existing = (v.context as unknown as Record<string, unknown>) ?? {};
+      const existingBrief = (existing.brief ?? {}) as Record<string, unknown>;
+      const patchBrief = (op.patch.brief ?? {}) as Record<string, unknown>;
+
+      // Merge confirmedSteps as a set (append-only, no duplicates)
+      const existingConfirmed = (existing.confirmedSteps ?? []) as string[];
+      const patchConfirmed = (op.patch.confirmedSteps ?? []) as string[];
+      const mergedConfirmed = Array.from(new Set([...existingConfirmed, ...patchConfirmed]));
+
+      const patch = { ...op.patch } as Record<string, unknown>;
+      delete patch.brief;
+      delete patch.confirmedSteps;
+
+      return {
+        ...v,
+        context: {
+          ...existing,
+          ...patch,
+          // Deep-merge brief so we don't wipe fields the LLM didn't mention
+          brief: { ...existingBrief, ...patchBrief },
+          confirmedSteps: mergedConfirmed,
+        } as typeof v.context,
+      };
+    }
+
     default:
       return v;
   }
+}
+
+function mergeStrategies(
+  existing: import("@copper/contracts").PersonalizationStrategy[],
+  incoming: import("@copper/contracts").PersonalizationStrategy[],
+): import("@copper/contracts").PersonalizationStrategy[] {
+  const map = new Map(existing.map((s) => [s.id, s]));
+  for (const s of incoming) map.set(s.id, s);
+  return Array.from(map.values());
 }

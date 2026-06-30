@@ -3,14 +3,17 @@ import { useStore } from "../store.js";
 import type { ActivePlan } from "../store.js";
 import ProposalCard from "./ProposalCard.js";
 import { CardPlayer } from "./cards/CardPlayer.js";
-import { chat, getLibrary, putLibrary, uploadLibraryContent } from "../api.js";
-import { classifyFile } from "../lib/parseContextFile.js";
+import { getLibrary, putLibrary, uploadLibraryContent } from "../api.js";
 import { useDocumentHandlers } from "../hooks/useDocumentHandlers.js";
+import { useAgentChat } from "../hooks/useAgentChat.js";
 import { IconMessage, IconArrowUp, IconCloudUpload, IconPlus, IconX, IconArrowsMaximize, IconArrowsMinimize, IconMinus } from "@tabler/icons-react";
 import type { PanelFocus } from "../store.js";
-import type { Exchange, LibraryFile } from "@copper/contracts";
+import type { Exchange, LibraryFile, ContextFile } from "@copper/contracts";
 import LibraryShelf from "./library/LibraryShelf.js";
 import LibraryTakeover from "./library/LibraryTakeover.js";
+import { classifyFile, parseContextFile } from "../lib/parseContextFile.js";
+import MediaPlanImportModal from "./mediaPlan/MediaPlanImportModal.js";
+
 
 const LLM_MODELS = [
   { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
@@ -69,24 +72,18 @@ interface Attachment {
   file?: File; // present for files dropped on chat; uploaded to library on submit
 }
 
-interface DisambigState {
-  file: File;
-}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function ContextPanel({ style }: { style?: React.CSSProperties }) {
   const version            = useStore((s) => s.version);
-  const exchanges          = useStore((s) => s.version?.context.exchanges) ?? [];
+  const rawExchanges       = useStore((s) => s.version?.context.exchanges) ?? [];
   const contextFiles       = useStore((s) => s.version?.context.contextFiles) ?? [];
   const activePlan         = useStore((s) => s.activePlan);
   const isLoading          = useStore((s) => s.isLoading);
   const llmModel           = useStore((s) => s.llmModel);
   const setLlmModel        = useStore((s) => s.setLlmModel);
-  const appendExchanges    = useStore((s) => s.appendExchanges);
-  const mergeServerVersion = useStore((s) => s.mergeServerVersion);
   const setLoading         = useStore((s) => s.setLoading);
-  const openWizard         = useStore((s) => s.openWizard);
   const libraryFiles       = useStore((s) => s.libraryFiles);
   const libraryFolders     = useStore((s) => s.libraryFolders);
   const libraryOpen        = useStore((s) => s.libraryOpen);
@@ -97,7 +94,18 @@ export default function ContextPanel({ style }: { style?: React.CSSProperties })
   const panelFocus         = useStore((s) => s.panelFocus as PanelFocus);
   const setPanelFocus      = useStore((s) => s.setPanelFocus);
 
+  const WELCOME_EXCHANGE: Exchange = {
+    id: "welcome",
+    role: "assistant",
+    text: "Welcome! Let's build your campaign together.\n\nDrop any files you have — a campaign brief, media plan, product catalog, or audience list — and I'll analyze them and fill in the relevant sections automatically.\n\nOr just tell me about the campaign and we'll walk through it step by step.",
+    status: "success",
+    startedAt: new Date().toISOString(),
+  };
+
+  const exchanges = rawExchanges.length === 0 ? [WELCOME_EXCHANGE] : rawExchanges;
+
   const { launchWizard } = useDocumentHandlers();
+  const { submit: agentSubmit } = useAgentChat();
 
   // Load library whenever the project changes
   useEffect(() => {
@@ -111,8 +119,23 @@ export default function ContextPanel({ style }: { style?: React.CSSProperties })
   const [thinking, setThinking]       = useState(false);
   const [dragOver, setDragOver]       = useState(false);
   const [plusOpen, setPlusOpen]       = useState(false);
-  const [disambig, setDisambig]       = useState<DisambigState | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+
+  // Media plan import modal
+  const [importModal, setImportModal] = useState<{ fileName: string; parsed: ContextFile } | null>(null);
+
+  // Try to open the media plan import modal for Excel files; falls back to plain attachment
+  async function tryOpenImportModal(file: File): Promise<boolean> {
+    if (classifyFile(file.name) !== "spreadsheet") return false;
+    try {
+      const parsed = await parseContextFile(file);
+      if (parsed.sheets && parsed.sheets.length > 0) {
+        setImportModal({ fileName: file.name, parsed });
+        return true;
+      }
+    } catch { /* fall through */ }
+    return false;
+  }
 
   const textareaRef        = useRef<HTMLTextAreaElement>(null);
   const fileInputRef       = useRef<HTMLInputElement>(null);
@@ -147,19 +170,18 @@ export default function ContextPanel({ style }: { style?: React.CSSProperties })
 
   // ── Shared destination handlers ───────────────────────────────────────────
 
-  // Drop on chat → attachment chip (staged for submit, not yet in library)
-  function parkToLibrary(files: File[]) {
-    setAttachments((prev) => [
-      ...prev,
-      ...files.map((f) => ({ id: `lib_${Date.now()}_${f.name}`, name: f.name, file: f })),
-    ]);
-  }
-
   // Library takeover "Add" button → immediately add to library + upload content
   function handleAddFile(file: File) {
     const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
     const cls = classifyFile(file.name);
-    if (cls === "table" || cls === "spreadsheet") {
+    if (cls === "spreadsheet") {
+      setLibraryOpen(false);
+      void tryOpenImportModal(file).then((opened) => {
+        if (!opened) launchWizard(file);
+      });
+      return;
+    }
+    if (cls === "table") {
       setLibraryOpen(false);
       void launchWizard(file);
       return;
@@ -217,7 +239,7 @@ export default function ContextPanel({ style }: { style?: React.CSSProperties })
         if (files[0]) void launchWizard(files[0]);
       } else {
         // library and plan both park to Library (plan stub = same destination)
-        parkToLibrary(files);
+        setAttachments((prev) => [...prev, ...files.map((f) => ({ id: `lib_${Date.now()}_${f.name}`, name: f.name, file: f }))]);
       }
     });
   }
@@ -228,70 +250,24 @@ export default function ContextPanel({ style }: { style?: React.CSSProperties })
 
   async function doSubmit() {
     const text = input.trim();
-    if ((!text && attachments.length === 0) || isLoading || thinking || !version) return;
-
-    setInput("");
     const pendingAttachments = [...attachments];
+    if ((!text && pendingAttachments.length === 0) || isLoading || thinking || !version) return;
+    setInput("");
     setAttachments([]);
-
-    // Flush staged files to library
-    if (pendingAttachments.length > 0 && version?.id) {
-      const newLibFiles: LibraryFile[] = pendingAttachments.map((att) => ({
-        id: att.id,
-        name: att.name,
-        type: att.name.split(".").pop()?.toLowerCase() ?? "",
-        tier: "local",
-        folderPath: "",
-        updatedAt: new Date().toISOString(),
-        size: att.file?.size,
-        selectedForContext: true,
-      }));
-      for (const lf of newLibFiles) addLibraryFile(lf);
-      const merged = [...libraryFiles, ...newLibFiles];
-      void putLibrary(version.id, { files: merged, folders: libraryFolders });
-      for (const att of pendingAttachments) {
-        if (!att.file) continue;
-        void uploadLibraryContent(version.id, att.id, att.file).then(({ contentPath }) => {
-          updateLibraryFile(att.id, { contentPath });
-        });
-      }
-    }
-
-    if (!text) return;
-
-    const ts = new Date().toISOString();
-    const userExchange: Exchange = {
-      id: `ex_u_${Date.now()}`,
-      role: "user",
-      text,
-      status: "success",
-      startedAt: ts,
-    };
-    appendExchanges([userExchange]);
     setThinking(true);
-    setLoading(true);
-
     try {
-      const selectedForContext = libraryFiles.filter((f) => f.selectedForContext);
-      const result = await chat(version.id!, text, llmModel, [...exchanges, userExchange], version, selectedForContext.length > 0 ? selectedForContext : undefined);
-      appendExchanges([result.exchange]);
-      if (result.version) mergeServerVersion(result.version);
-      if (result.wizard) openWizard(result.wizard);
-    } catch (err) {
-      appendExchanges([{
-        id: `ex_err_${Date.now()}`,
-        role: "assistant",
-        text: `Error: ${(err as Error).message}`,
-        status: "error",
-        startedAt: new Date().toISOString(),
-      }]);
+      await agentSubmit(
+        text,
+        pendingAttachments
+          .filter((a) => !!a.file)
+          .map((a) => ({ id: a.id, name: a.name, file: a.file! })),
+      );
     } finally {
       setThinking(false);
-      setLoading(false);
     }
   }
 
-  // ── Drop handlers (Route A — type-based) ─────────────────────────────────
+  // ── Drop handlers ────────────────────────────────────────────────────────
 
   function handleDragEnter(e: React.DragEvent) { e.preventDefault(); setDragOver(true); }
   function handleDragLeave(e: React.DragEvent) {
@@ -303,19 +279,58 @@ export default function ContextPanel({ style }: { style?: React.CSSProperties })
     e.preventDefault();
     setDragOver(false);
     const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    const nonSpreadsheets: File[] = [];
+    const spreadsheets: File[] = [];
     for (const f of files) {
-      const cls = classifyFile(f.name);
-      if (cls === "table" || cls === "spreadsheet") {
-        setDisambig({ file: f }); // ambiguous on context — ask
-        return;
-      }
-      parkToLibrary([f]);
+      if (classifyFile(f.name) === "spreadsheet") spreadsheets.push(f);
+      else nonSpreadsheets.push(f);
+    }
+
+    // Non-spreadsheet files → regular attachment flow
+    if (nonSpreadsheets.length > 0) {
+      setAttachments((prev) => [
+        ...prev,
+        ...nonSpreadsheets.map((f) => ({ id: `lib_${Date.now()}_${f.name}`, name: f.name, file: f })),
+      ]);
+    }
+
+    // Spreadsheet → try import modal (first one only; unusual to drop multiple xlsx)
+    if (spreadsheets.length > 0) {
+      void tryOpenImportModal(spreadsheets[0]).then((opened) => {
+        if (!opened) {
+          // Fallback: treat as regular attachment
+          setAttachments((prev) => [
+            ...prev,
+            ...spreadsheets.map((f) => ({ id: `lib_${Date.now()}_${f.name}`, name: f.name, file: f })),
+          ]);
+        }
+      });
     }
   }
 
   const canSubmit = (!!input.trim() || attachments.length > 0) && !isLoading && !thinking && !!version;
 
+  async function handleImportAnalyze(message: string) {
+    setThinking(true);
+    try {
+      await agentSubmit(message, []);
+    } finally {
+      setThinking(false);
+    }
+  }
+
   return (
+    <>
+      {importModal && (
+        <MediaPlanImportModal
+          fileName={importModal.fileName}
+          parsed={importModal.parsed}
+          onClose={() => setImportModal(null)}
+          onAnalyze={(msg) => void handleImportAnalyze(msg)}
+        />
+      )}
     <div
       className={`context-panel${dragOver ? " context-panel--drag" : ""}`}
       style={style}
@@ -328,35 +343,8 @@ export default function ContextPanel({ style }: { style?: React.CSSProperties })
       {dragOver && (
         <div className="drop-overlay">
           <IconCloudUpload size={28} />
-          <span className="drop-overlay-label">Drop File</span>
-          <span className="drop-overlay-sub">tables → wizard · docs → chat context</span>
-        </div>
-      )}
-
-      {/* Disambiguation overlay */}
-      {disambig && (
-        <div className="cp-disambig-overlay">
-          <div className="cp-disambig-box">
-            <div className="cp-disambig-filename">{disambig.file.name}</div>
-            <div className="cp-disambig-question">How should this file be used?</div>
-            <div className="cp-disambig-btns">
-              <button
-                className="cp-disambig-btn cp-disambig-btn--primary"
-                onClick={() => { void launchWizard(disambig.file); setDisambig(null); }}
-              >
-                Add as table → wizard
-              </button>
-              <button
-                className="cp-disambig-btn"
-                onClick={() => { parkToLibrary([disambig.file]); setDisambig(null); }}
-              >
-                Add to Library
-              </button>
-            </div>
-            <button className="cp-disambig-cancel" onClick={() => setDisambig(null)}>
-              Cancel
-            </button>
-          </div>
+          <span className="drop-overlay-label">Drop to analyze</span>
+          <span className="drop-overlay-sub">Agent will identify the file and help you use it</span>
         </div>
       )}
 
@@ -406,12 +394,6 @@ export default function ContextPanel({ style }: { style?: React.CSSProperties })
 
           {/* Exchange thread */}
           <div className="cp-exchanges">
-            {exchanges.length === 0 && (
-              <div className="cp-empty">
-                <span>No conversation yet.</span>
-                <span>Describe what you want to build.</span>
-              </div>
-            )}
             {exchanges.map((ex) => (
               <ExchangeBubble key={ex.id} exchange={ex} />
             ))}
@@ -510,6 +492,7 @@ export default function ContextPanel({ style }: { style?: React.CSSProperties })
         </>
       )}
     </div>
+    </>
   );
 }
 
@@ -518,7 +501,18 @@ function ExchangeBubble({ exchange }: { exchange: Exchange }) {
   return (
     <div className={`exchange exchange--${exchange.role}`}>
       {isUser ? (
-        <div className="ex-user-msg">{exchange.text}</div>
+        <div className="ex-user-msg">
+          {exchange.attachmentNames && exchange.attachmentNames.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 6 }}>
+              {exchange.attachmentNames.map((name) => (
+                <span key={name} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", background: "rgba(37,99,235,0.1)", borderRadius: 4, fontSize: 11, color: "#2563EB", fontWeight: 500 }}>
+                  📎 {name}
+                </span>
+              ))}
+            </div>
+          )}
+          {exchange.text}
+        </div>
       ) : (
         <div className="ex-assistant-msg">
           <div className="ex-text">{exchange.text}</div>

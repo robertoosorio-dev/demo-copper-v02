@@ -318,6 +318,23 @@
 .qa-cs-accepted { background: var(--green-bg);  color: var(--green-txt);  }
 .qa-cs-rejected { background: var(--coral-bg);  color: var(--coral-txt);  }
 .qa-change-summary { font-size: 11px; color: var(--txt2); }
+
+.qa-ops-list { display: flex; flex-direction: column; gap: 6px; }
+.qa-op-pre {
+  margin: 0; padding: 8px 10px;
+  background: var(--bg2); border: 1px solid var(--b); border-radius: 5px;
+  font-size: 10px; font-family: var(--mono); color: var(--txt2);
+  white-space: pre-wrap; word-break: break-all; overflow-x: auto;
+  max-height: 200px;
+}
+.qa-msg-pre {
+  margin: 4px 0 0; padding: 8px 10px;
+  background: var(--bg2); border: 1px solid var(--b); border-radius: 5px;
+  font-size: 10px; font-family: var(--mono); color: var(--txt2);
+  white-space: pre-wrap; word-break: break-word; overflow-x: auto;
+  max-height: 320px; overflow-y: auto;
+}
+
 .qa-ctx {
   font-size: 11px;
   color: var(--txt3);

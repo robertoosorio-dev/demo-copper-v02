@@ -27,6 +27,7 @@ export default function GlobalRail() {
   const setCampaignOpen  = useStore((s) => s.setCampaignOpen);
   const setBrandOpen     = useStore((s) => s.setBrandOpen);
   const setCatalogOpen   = useStore((s) => s.setCatalogOpen);
+  const setAudienceOpen  = useStore((s) => s.setAudienceOpen);
 
   return (
     <nav className="syn-rail">
@@ -42,6 +43,7 @@ export default function GlobalRail() {
             if (id !== "campaigns") setCampaignOpen(false);
             if (id !== "brands")    setBrandOpen(false);
             if (id !== "catalogs")  setCatalogOpen(false);
+            if (id !== "audiences") setAudienceOpen(false);
           }}
         >
           <Icon size={18} />

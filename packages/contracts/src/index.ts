@@ -34,6 +34,7 @@ export interface Exchange {
     props: Record<string, unknown>;
   };
   rawResponse?: string;
+  attachmentNames?: string[];
 }
 
 export interface ProposalPayload {
@@ -42,10 +43,31 @@ export interface ProposalPayload {
   forward: Array<{ type: "add" | "modify" | "warn"; label: string; note: string }>;
 }
 
+export type CampaignStatus = "draft" | "running" | "paused" | "scheduled" | "finished" | "archived";
+
+export interface CampaignMeta {
+  status: CampaignStatus;
+  description: string;
+  startDate: string;
+  endDate: string;
+  completedSteps: number;
+  totalSteps: number;
+  brandId: string | null;
+  brandName: string | null;
+}
+
+export interface CampaignStrategyContext {
+  deliveryType: "with-personalization" | "without-personalization" | null;
+}
+
 export interface ProjectContext {
   contextFiles: ContextFile[];
   exchanges: Exchange[];
   linkedCatalogId?: string | null;
+  campaign?: CampaignMeta;
+  brief?: Record<string, unknown>;
+  confirmedSteps?: string[];
+  campaignStrategy?: CampaignStrategyContext;
 }
 
 // ── A1. Version ───────────────────────────────────────────────────────────────
@@ -63,7 +85,7 @@ export interface Version {
   plans: {
     data: PlanSlot<DataPlanModel>;
     media: PlanSlot<MediaPlanModel>;
-    creative: PlanSlot<null>;
+    creative: PlanSlot<CreativePlanModel>;
   };
 }
 
@@ -352,6 +374,52 @@ export interface MediaPlanModel {
   connections: Connection[];
 }
 
+// ── Creative plan model ───────────────────────────────────────────────────────
+
+export interface ColumnMapping {
+  fromTable: string;   // table id or name
+  fromColumn: string;
+  toTable: string;
+  toColumn: string;
+  relationship: string; // e.g. "Audience ID joins on Audience ID", drives DCO logic description
+}
+
+export interface DataTableLink {
+  id: string;
+  name: string;
+  type: "catalog" | "imported" | "builtin-signal";
+}
+
+export interface PersonalizationStrategy {
+  id: string;
+  title: string;           // e.g. "Audience Segment - Product Category - Headline - Country"
+  description: string;
+  tables: DataTableLink[]; // ordered chain starting from product catalog
+  columnMappings: ColumnMapping[];
+  createdAt: string;
+  confirmedAt?: string;
+}
+
+export interface CreativePlanModel {
+  deliveryType: "with-personalization" | "without-personalization" | null;
+  personalizationStrategies: PersonalizationStrategy[];
+  productDisplayOrder: string[]; // entity IDs in preferred display order
+}
+
+// ── Clarification question (used by askClarification op) ─────────────────────
+
+export interface ClarificationOption {
+  id: string;
+  label: string;
+}
+
+export interface ClarificationQuestion {
+  id: string;
+  text: string;
+  multiSelect: boolean;
+  options: ClarificationOption[];
+}
+
 // ── Intents (generic mutation ops) ───────────────────────────────────────────
 
 export interface AddEntityIntent {
@@ -393,13 +461,31 @@ export interface UpdateDocumentIntent {
   document: string;
 }
 
+export interface PatchContextIntent {
+  op: "patchContext";
+  patch: Record<string, unknown>;
+}
+
+export interface PatchCreativeIntent {
+  op: "patchCreative";
+  patch: Partial<CreativePlanModel>;
+}
+
+export interface AskClarificationIntent {
+  op: "askClarification";
+  questions: ClarificationQuestion[];
+}
+
 export type Intent =
   | AddEntityIntent
   | ModifyEntityIntent
   | RemoveEntityIntent
   | AddConnectionIntent
   | RemoveConnectionIntent
-  | UpdateDocumentIntent;
+  | UpdateDocumentIntent
+  | PatchContextIntent
+  | PatchCreativeIntent
+  | AskClarificationIntent;
 
 // ── Card contracts (stub — grows in later milestones) ─────────────────────────
 
@@ -436,8 +522,45 @@ export interface LibraryData {
 
 // ── Brand / Advertiser ────────────────────────────────────────────────────────
 
-export type BrandConfidence = "high" | "medium" | "low";
+// Compliance Rule Sets — dynamic hierarchy
+export interface ComplianceProperty {
+  key: string;
+  value: string;
+}
+
 export type BrandSeverity   = "suggestion" | "preference" | "required";
+
+export interface ComplianceRule {
+  id: string;
+  name: string;
+  description: string;
+  severity: BrandSeverity;
+  confirmed: boolean;          // true = user has reviewed this rule
+  aiExtracted: boolean;        // false = manually entered
+  properties: ComplianceProperty[];
+}
+
+export interface ComplianceSection {
+  id: string;
+  name: string;
+  description: string;
+  properties: ComplianceProperty[];
+  rules: ComplianceRule[];
+}
+
+export interface RuleSet {
+  id: string;
+  name: string;
+  description: string;
+  sourceFile?: string;          // original filename for fuzzy-match detection
+  properties: ComplianceProperty[];
+  sections: ComplianceSection[];
+  rules: ComplianceRule[];      // rules not belonging to any section
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BrandConfidence = "high" | "medium" | "low";
 export type BrandStatus     = "draft" | "ready";
 
 export interface BrandField {
@@ -522,6 +645,8 @@ export interface Brand {
     legalNotes: BrandField;
     regulatedCategories: BrandField;
   };
+
+  ruleSets: RuleSet[];
 
   connectors: {
     sourceLinks: string[];
@@ -616,7 +741,55 @@ export interface ProductCatalog {
 export interface CatalogSummary {
   id: string;
   name: string;
+  brandId: string | null;
   status: CatalogStatus;
+  rowCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ── Audience types ────────────────────────────────────────────────────────────
+
+export type AudienceStatus = "draft" | "ready" | "syncing" | "error";
+export type AudienceFieldCategory = "identifier" | "demographics" | "behavioral" | "engagement" | "custom";
+
+export interface AudienceFieldMapping {
+  columnName: string;
+  synapseField: string;
+  category: AudienceFieldCategory;
+  type: CatalogFieldType;
+  aiRecommended: boolean;
+  sampleValue: string;
+}
+
+export interface Audience {
+  id: string;
+  name: string;
+  brandId: string | null;
+  status: AudienceStatus;
+  createdAt: string;
+  updatedAt: string;
+  currentStep: number;
+
+  source: CatalogSource | null;
+  columns: CatalogColumn[];
+  fieldMapping: AudienceFieldMapping[];
+  issues: CatalogIssue[];
+  primaryKey: string | null;
+
+  schedule: "auto" | "manual";
+  syncCadence: string | null;
+
+  rowCount: number;
+  warningCount: number;
+  sampleRows: string[][];
+  headers: string[];
+}
+
+export interface AudienceSummary {
+  id: string;
+  name: string;
+  status: AudienceStatus;
   rowCount: number;
   createdAt: string;
   updatedAt: string;

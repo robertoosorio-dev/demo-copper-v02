@@ -80,4 +80,10 @@ export class GCSStorageProvider {
   async delete(p: string): Promise<void> {
     await this._bucket.file(p).delete();
   }
+
+  async deletePrefix(prefix: string): Promise<void> {
+    const queryPrefix = prefix.endsWith("/") ? prefix : `${prefix}/`;
+    const [files] = await this._bucket.getFiles({ prefix: queryPrefix });
+    await Promise.all(files.map((f) => f.delete()));
+  }
 }

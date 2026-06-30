@@ -28,7 +28,7 @@ async function parseCSV(f: File): Promise<ContextFile> {
   const lines = text.split(/\r?\n/).filter(Boolean);
   const columns = lines.length > 0 ? splitCSVRow(lines[0]) : [];
   const dataRows = lines.slice(1);
-  const preview = dataRows.slice(0, 3).map(splitCSVRow);
+  const preview = dataRows.slice(0, 100).map(splitCSVRow);
   return {
     name: f.name,
     kind: "spreadsheet",
@@ -57,7 +57,7 @@ async function parseJSON(f: File): Promise<ContextFile> {
   try { data = JSON.parse(text); } catch { return parkRawFile(f); }
   const arr = Array.isArray(data) ? data : (data && typeof data === "object" ? [data] : []);
   const columns = arr.length > 0 ? Object.keys(arr[0] as object) : [];
-  const preview = arr.slice(0, 3).map((r) =>
+  const preview = arr.slice(0, 100).map((r) =>
     columns.map((c) => String((r as Record<string, unknown>)[c] ?? "")),
   );
   return {
@@ -81,7 +81,7 @@ async function parseExcel(f: File): Promise<ContextFile> {
       name,
       rowCount: dataRows.length,
       columns,
-      preview: dataRows.slice(0, 3).map((r) => r.map(String)),
+      preview: dataRows.slice(0, 100).map((r) => r.map(String)),
     };
   });
   return {
